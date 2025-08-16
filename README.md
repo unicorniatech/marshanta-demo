@@ -74,7 +74,7 @@ Core flows (Sprint 1):
 GitHub Actions workflow `ci.yml` runs on PRs and main:
 - Installs deps via npm workspaces.
 - Runs API smoke test `apps/api/scripts/smoke.js` (health, restaurants/menu, create order).
-- Runs web workspace no-op build/test scripts.
+- Runs web smoke test `apps/web/scripts/smoke.js` to verify the homepage serves.
 
 ## Demo Walkthrough
 
