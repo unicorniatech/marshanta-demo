@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Marshanta</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0ea5e9" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      :root { --bg:#0b1220; --card:#0f172a; --fg:#e2e8f0; --muted:#93c5fd; }
+      * { box-sizing: border-box; }
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background: var(--bg); color: var(--fg); }
+      header { padding: 16px 20px; background: #0ea5e9; color:#081018; font-weight: 700; }
+      main { max-width: 800px; margin: 24px auto; padding: 0 16px; }
+      .card { background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+      button { background:#0ea5e9; color:#081018; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
+      input { padding:10px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--fg); }
+      .row { display:flex; gap:8px; flex-wrap:wrap; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .chat { min-height: 140px; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
+      #map { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid #1f2937; }
+    </style>
+  </head>
+  <body>
+    <header>Marshanta — PWA Onboarding (Sprint 1)</header>
+    <main>
+      <section class="card">
+        <h3>Install</h3>
+        <p class="muted">Add to home screen for a better experience.</p>
+        <button id="installBtn" hidden>Install App</button>
+      </section>
+
+      <section class="card">
+        <h3>Welcome</h3>
+        <div id="chat" class="chat"></div>
+        <div class="row">
+          <input id="email" type="email" placeholder="email" />
+          <input id="password" type="password" placeholder="password" />
+          <select id="role">
+            <option value="client" selected>client</option>
+            <option value="staff">staff</option>
+            <option value="admin">admin</option>
+          </select>
+          <button id="registerBtn">Register</button>
+          <button id="loginBtn">Login</button>
+          <button id="logoutBtn">Logout</button>
+        </div>
+        <p class="muted">API Base: <code id="apiBase"></code></p>
+      </section>
+
+      <section class="card">
+        <h3>Restaurants</h3>
+        <div class="row">
+          <button id="loadRestaurantsBtn">Show Restaurants</button>
+        </div>
+        <ul id="restaurantsList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Menu</h3>
+        <p class="muted" id="menuHeader">No restaurant selected.</p>
+        <ul id="menuList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Cart</h3>
+        <ul id="cartList"></ul>
+        <p><strong>Total:</strong> <span id="cartTotal">$0.00</span></p>
+        <div class="row">
+          <button id="clearCartBtn">Clear Cart</button>
+          <button id="reviewOrderBtn">Review Order</button>
+          <button id="placeOrderBtn">Place Order</button>
+          <button id="refreshOrdersBtn">Refresh Orders</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Orders</h3>
+        <ul id="ordersList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Restaurant Console</h3>
+        <div class="row">
+          <select id="rcRestaurant"></select>
+          <button id="rcLoadOrdersBtn">Load Orders</button>
+        </div>
+        <ul id="rcOrdersList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Tracking</h3>
+        <p class="muted">Active Order: <span id="trackingOrder">—</span></p>
+        <div id="trackingStatus">Not tracking.</div>
+        <div id="trackingCoords" class="muted"></div>
+        <div id="map"></div>
+        <div class="row">
+          <button id="stopTrackingBtn">Stop Tracking</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Debug</h3>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

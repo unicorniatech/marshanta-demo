@@ -1,0 +1,12 @@
+{
+  "name": "@marshanta/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes http-server -c-1 -p 5173 .",
+    "build": "echo build web",
+    "start": "echo start web",
+    "test": "echo test web",
+    "smoke": "node scripts/smoke.js"
+  }
+}

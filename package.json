@@ -1,0 +1,22 @@
+{
+  "name": "marshanta",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "echo Workspaces linked",
+    "build": "echo Define builds in each workspace",
+    "test": "echo Define tests in each workspace",
+    "lint": "eslint \"apps/**/*.{js,jsx,ts,tsx}\"",
+    "format": "prettier -w ."
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "prettier": "^3.3.3"
+  }
+}
