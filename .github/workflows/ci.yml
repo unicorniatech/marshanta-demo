@@ -8,6 +8,20 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: marshanta
+          POSTGRES_USER: marshanta
+          POSTGRES_PASSWORD: marshanta
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marshanta -d marshanta" \
+          --health-interval 10s \
+          --health-timeout 5s \
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,9 +37,23 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: API smoke test
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            nc -z 127.0.0.1 5432 && echo "Postgres is up" && break
+            echo "Waiting for Postgres..." && sleep 2
+          done
+
+      - name: Run migrations (pg)
+        env:
+          DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
+        run: npm --workspace @marshanta/api run db:migrate
+
+      - name: API smoke test (pg)
         env:
           NODE_ENV: test
+          DB_DRIVER: pg
+          DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
         run: node apps/api/scripts/smoke.js
 
       - name: Web smoke test
