@@ -2,9 +2,11 @@
 // Switch via env: DB_DRIVER=memory (default)
 
 import * as memory from './memory.js'
+import * as pg from './pg.js'
 
 const drivers = {
-  memory
+  memory,
+  pg
 }
 
 function selectDriver() {
