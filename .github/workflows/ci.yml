@@ -49,6 +49,13 @@ jobs:
           DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
         run: npm --workspace @marshanta/api run db:migrate
 
+      - name: API integration tests (pg)
+        env:
+          NODE_ENV: test
+          DB_DRIVER: pg
+          DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
+        run: npm --workspace @marshanta/api test
+
       - name: API smoke test (pg)
         env:
           NODE_ENV: test
@@ -58,3 +65,9 @@ jobs:
 
       - name: Web smoke test
         run: npm --workspace apps/web run smoke
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Web E2E test (Playwright)
+        run: npm --workspace apps/web run e2e

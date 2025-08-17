@@ -26,7 +26,7 @@ npm run -w @marshanta/api dev
 npm run -w @marshanta/web dev
 ```
 
-## Local: Option B — Docker Compose
+## Local: Option B — Docker Desktop + Compose
 Use the included `docker-compose.yml` at repo root.
 
 1. Start the DB:
@@ -38,6 +38,22 @@ docker compose up -d db
 npm run -w @marshanta/api db:migrate
 ```
 3. Start API/Web (same as above).
+
+## Local: Option C — Homebrew Postgres (macOS)
+Install and run Postgres natively via Homebrew.
+
+1. Install and start service:
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+```
+2. Create user and database:
+```bash
+createuser marshanta --createdb
+createdb marshanta
+psql -d marshanta -c "alter user marshanta with password 'marshanta';"
+```
+3. Set `.env` and run migrations/tests as in Option A.
 
 ## CI
 GitHub Actions launches a Postgres 16 service, waits for readiness, runs migrations, then runs API smoke with `DB_DRIVER=pg`.
