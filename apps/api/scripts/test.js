@@ -33,9 +33,13 @@ async function run() {
 import health from '../tests/health.test.js'
 import restaurants from '../tests/restaurants.test.js'
 import orders from '../tests/orders.test.js'
+import auth from '../tests/auth.test.js'
+import errors from '../tests/errors.test.js'
 
 register('health endpoint', health)
 register('restaurants and menus', restaurants)
 register('orders flow with mocked payments', orders)
+register('auth register/login/me/logout', auth)
+register('errors and negative cases', errors)
 
 run().catch(err => { console.error(err); process.exit(1) })

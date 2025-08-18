@@ -35,17 +35,17 @@ async function startPaymentFlow(orderId) {
   try {
     // 1) Request intent
     const intent = await api('/payments/intent', { method: 'POST', body: { orderId } })
-    if (!intent.ok) return say(`Payment intent failed: ${intent.status} ${intent.data.error || ''}`)
+    if (!intent.ok) return say(`Error en intención de pago: ${intent.status} ${intent.data.error || ''}`)
     const { clientSecret, amountCents } = intent.data
-    say(`Payment intent created for order #${orderId}: ${formatPrice(amountCents)}`)
+    say(`Intención de pago creada para el pedido #${orderId}: ${formatPrice(amountCents)}`)
 
     // 2) Simulate confirmation (success)
     const confirm = await api('/payments/confirm', { method: 'POST', body: { orderId, clientSecret, outcome: 'succeeded' } })
-    if (!confirm.ok) return say(`Payment confirm failed: ${confirm.status} ${confirm.data.error || ''}`)
-    say(`Payment ${confirm.data.paymentStatus} for order #${orderId}`)
+    if (!confirm.ok) return say(`Confirmación de pago fallida: ${confirm.status} ${confirm.data.error || ''}`)
+    say(`Pago ${confirm.data.paymentStatus} para el pedido #${orderId}`)
     await refreshOrders()
   } catch (e) {
-    log(`payment error: ${e.message}`)
+    log(`error de pago: ${e.message}`)
   }
 }
 
@@ -82,11 +82,11 @@ let cart = [] // [{ restaurantId, itemId, name, priceCents, qty }]
 
 function formatPrice(cents) {
   const v = (cents || 0) / 100
-  return v.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
+  return v.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
 }
 
 async function api(path, { method = 'GET', body } = {}) {
-  if (!apiBase) throw new Error('API base not configured')
+  if (!apiBase) throw new Error('Base de API no configurada')
   const headers = { 'Content-Type': 'application/json' }
   const token = localStorage.getItem(tokenKey)
   if (token) headers['Authorization'] = `Bearer ${token}`
@@ -102,10 +102,10 @@ async function api(path, { method = 'GET', body } = {}) {
 async function loadRestaurants() {
   try {
     const r = await api('/restaurants')
-    if (!r.ok) return say(`Could not load restaurants (${r.status})`)
+    if (!r.ok) return say(`No se pudieron cargar los restaurantes (${r.status})`)
     renderRestaurants(r.data.restaurants)
   } catch (e) {
-    log(`restaurants error: ${e.message}`)
+    log(`error de restaurantes: ${e.message}`)
   }
 }
 
@@ -123,14 +123,14 @@ function renderRestaurants(rows = []) {
 
 async function selectRestaurant(r) {
   selectedRestaurant = r
-  els.menuHeader.textContent = `Menu — ${r.name}`
+  els.menuHeader.textContent = `Menú — ${r.name}`
   els.menuList.innerHTML = ''
   try {
     const m = await api(`/restaurants/${r.id}/menu`)
-    if (!m.ok) return say(`Could not load menu (${m.status})`)
+    if (!m.ok) return say(`No se pudo cargar el menú (${m.status})`)
     renderMenu(m.data.items || [])
   } catch (e) {
-    log(`menu error: ${e.message}`)
+    log(`error de menú: ${e.message}`)
   }
 }
 
@@ -139,7 +139,7 @@ function renderMenu(items = []) {
   items.forEach(it => {
     const li = document.createElement('li')
     const add = document.createElement('button')
-    add.textContent = `Add`
+    add.textContent = `Agregar`
     add.addEventListener('click', () => addToCart(it))
     li.textContent = `${it.name} — ${formatPrice(it.priceCents)} `
     li.appendChild(add)
@@ -148,7 +148,7 @@ function renderMenu(items = []) {
 }
 
 function addToCart(item) {
-  if (!selectedRestaurant) return say('Select a restaurant first')
+  if (!selectedRestaurant) return say('Selecciona un restaurante primero')
   const key = `${selectedRestaurant.id}:${item.id}`
   const existing = cart.find(c => `${c.restaurantId}:${c.itemId}` === key)
   if (existing) existing.qty += 1
@@ -183,31 +183,31 @@ function renderCart() {
 
 // ---------- Orders (Story 3.1) ----------
 function summarizeCart() {
-  if (!selectedRestaurant) return 'No restaurant selected.'
-  if (!cart.length) return 'Cart is empty.'
+  if (!selectedRestaurant) return 'Ningún restaurante seleccionado.'
+  if (!cart.length) return 'El carrito está vacío.'
   const lines = cart.map(c => `• ${c.name} x${c.qty} = ${formatPrice(c.priceCents * c.qty)}`)
   const total = cart.reduce((acc, c) => acc + c.priceCents * c.qty, 0)
-  return `Order @ ${selectedRestaurant.name}\n${lines.join('\n')}\nTotal: ${formatPrice(total)}`
+  return `Pedido @ ${selectedRestaurant.name}\n${lines.join('\n')}\nTotal: ${formatPrice(total)}`
 }
 
 async function placeOrder() {
-  if (!selectedRestaurant) return say('Please select a restaurant before placing an order.')
-  if (!cart.length) return say('Add items to the cart first.')
+  if (!selectedRestaurant) return say('Selecciona un restaurante antes de realizar el pedido.')
+  if (!cart.length) return say('Agrega artículos al carrito primero.')
   const items = cart.map(c => ({ itemId: c.itemId, name: c.name, priceCents: c.priceCents, qty: c.qty }))
   const r = await api('/orders', { method: 'POST', body: { restaurantId: selectedRestaurant.id, items } })
   if (r.ok) {
-    say(`Order placed! ID: ${r.data.order.id}, status: ${r.data.order.status}`)
+    say(`¡Pedido realizado! ID: ${r.data.order.id}, estado: ${r.data.order.status}`)
     cart = []
     renderCart()
     await refreshOrders()
   } else {
-    say(`Failed to place order: ${r.status} ${r.data.error || ''}`)
+    say(`Error al realizar el pedido: ${r.status} ${r.data.error || ''}`)
   }
 }
 
 async function refreshOrders() {
   const r = await api('/orders')
-  if (!r.ok) return say(`Failed to load orders: ${r.status}`)
+  if (!r.ok) return say(`Error al cargar pedidos: ${r.status}`)
   renderOrders(r.data.orders || [])
 }
 
@@ -224,23 +224,23 @@ function renderOrders(rows = []) {
     li.appendChild(items)
     const pay = document.createElement('div')
     pay.className = 'muted'
-    pay.textContent = `Payment: ${o.paymentStatus || 'Unpaid'}`
+    pay.textContent = `Pago: ${o.paymentStatus || 'No pagado'}`
     li.appendChild(pay)
     const next = nextStatus(o.status)
     if (next) {
       const btn = document.createElement('button')
-      btn.textContent = `Advance → ${next}`
+      btn.textContent = `Avanzar → ${next}`
       btn.addEventListener('click', () => advanceOrder(o.id, next))
       li.appendChild(btn)
     }
     if (!o.paymentStatus || o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Failed') {
       const payBtn = document.createElement('button')
-      payBtn.textContent = 'Pay'
+      payBtn.textContent = 'Pagar'
       payBtn.addEventListener('click', () => startPaymentFlow(o.id))
       li.appendChild(payBtn)
     }
     const track = document.createElement('button')
-    track.textContent = 'Track'
+    track.textContent = 'Rastrear'
     track.addEventListener('click', () => trackOrder(o.id))
     li.appendChild(track)
     els.ordersList.appendChild(li)
@@ -261,13 +261,13 @@ async function advanceOrder(id, next) {
   if (r.ok) {
     await refreshOrders()
   } else if (r.status === 409) {
-    say(`Invalid transition: ${r.data.error}`)
+    say(`Transición inválida: ${r.data.error}`)
   } else if (r.status === 401) {
-    say('Please login to perform this action.')
+    say('Por favor inicia sesión para realizar esta acción.')
   } else if (r.status === 403) {
-    say('Forbidden: staff or admin role required to advance orders.')
+    say('Prohibido: se requiere rol de personal o administrador para avanzar pedidos.')
   } else {
-    say(`Failed to update: ${r.status}`)
+    say(`Error al actualizar: ${r.status}`)
   }
 }
 
@@ -279,10 +279,10 @@ let mapMarker = null
 
 function trackOrder(orderId) {
   stopTracking()
-  if (!apiBase) return say('API base not configured')
+  if (!apiBase) return say('Base de API no configurada')
   trackingId = orderId
   els.trackingOrder.textContent = `#${orderId}`
-  els.trackingStatus.textContent = 'Connecting...'
+  els.trackingStatus.textContent = 'Conectando...'
   els.trackingCoords.textContent = ''
   ensureMap()
   const url = `${apiBase}/tracking/${orderId}/stream`
@@ -291,12 +291,12 @@ function trackOrder(orderId) {
     try {
       const data = JSON.parse(ev.data)
       if (data.type === 'hello') {
-        els.trackingStatus.textContent = `Status: ${data.status}`
+        els.trackingStatus.textContent = `Estado: ${data.status}`
       } else if (data.type === 'location') {
-        els.trackingCoords.textContent = `Lat ${data.lat.toFixed(6)}, Lng ${data.lng.toFixed(6)} @ ${new Date(data.ts).toLocaleTimeString()}`
+        els.trackingCoords.textContent = `Lat ${data.lat.toFixed(6)}, Lng ${data.lng.toFixed(6)} @ ${new Date(data.ts).toLocaleTimeString('es-MX')}`
         updateMap(data.lat, data.lng)
       } else if (data.type === 'complete') {
-        els.trackingStatus.textContent = 'Arrived (simulation complete)'
+        els.trackingStatus.textContent = 'Llegó (simulación completa)'
         stopTracking()
       }
     } catch (_) {
@@ -304,7 +304,7 @@ function trackOrder(orderId) {
     }
   }
   es.onerror = () => {
-    els.trackingStatus.textContent = 'Connection error'
+    els.trackingStatus.textContent = 'Error de conexión'
   }
 }
 
@@ -316,7 +316,7 @@ function stopTracking() {
   if (trackingId) {
     trackingId = null
   }
-  els.trackingStatus.textContent = 'Not tracking.'
+  els.trackingStatus.textContent = 'Sin rastreo.'
   els.trackingOrder.textContent = '—'
   els.trackingCoords.textContent = ''
   resetMap()
@@ -389,7 +389,7 @@ async function rcLoadOrders() {
   const rid = rc.restaurant.value
   if (!rid) return
   const r = await api(`/orders?restaurantId=${encodeURIComponent(rid)}`)
-  if (!r.ok) return say(`Failed to load orders for restaurant ${rid}: ${r.status}`)
+  if (!r.ok) return say(`No se pudieron cargar los pedidos del restaurante ${rid}: ${r.status}`)
   renderRcOrders(r.data.orders || [])
 }
 
@@ -398,7 +398,7 @@ function renderRcOrders(rows = []) {
   rows.forEach(o => {
     const li = document.createElement('li')
     const title = document.createElement('div')
-    title.textContent = `#${o.id} — ${o.status} — Payment: ${o.paymentStatus || 'Unpaid'}`
+    title.textContent = `#${o.id} — ${o.status} — Pago: ${o.paymentStatus || 'No pagado'}`
     li.appendChild(title)
     const items = document.createElement('div')
     items.className = 'muted'
@@ -407,7 +407,7 @@ function renderRcOrders(rows = []) {
     const next = nextStatus(o.status)
     if (next) {
       const btn = document.createElement('button')
-      btn.textContent = `Advance → ${next}`
+      btn.textContent = `Avanzar → ${next}`
       btn.addEventListener('click', async () => { await advanceOrder(o.id, next); await rcLoadOrders() })
       li.appendChild(btn)
     }
@@ -425,12 +425,12 @@ els.registerBtn.addEventListener('click', async () => {
     const role = (els.role?.value) || 'client'
     const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
     if (r.ok) {
-      say(`Registered ${r.data.email}`)
+      say(`Registrado ${r.data.email}`)
     } else {
-      say(`Register failed: ${r.status} ${r.data.error || ''}`)
+      say(`Error al registrarse: ${r.status} ${r.data.error || ''}`)
     }
   } catch (e) {
-    log(`register error: ${e.message}`)
+    log(`error de registro: ${e.message}`)
   }
 })
 
@@ -441,14 +441,14 @@ els.loginBtn.addEventListener('click', async () => {
     const r = await api('/auth/login', { method: 'POST', body: { email, password } })
     if (r.ok && r.data.token) {
       localStorage.setItem(tokenKey, r.data.token)
-      say('Logged in')
+      say('Sesión iniciada')
       const me = await api('/me')
-      if (me.ok) say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
+      if (me.ok) say(`Hola ${me.data.user.email} (rol: ${me.data.user.role})`)
     } else {
-      say(`Login failed: ${r.status} ${r.data.error || ''}`)
+      say(`Error al iniciar sesión: ${r.status} ${r.data.error || ''}`)
     }
   } catch (e) {
-    log(`login error: ${e.message}`)
+    log(`error de inicio de sesión: ${e.message}`)
   }
 })
 
@@ -457,24 +457,24 @@ els.logoutBtn.addEventListener('click', async () => {
     const r = await api('/auth/logout', { method: 'POST' })
     if (r.ok) {
       localStorage.removeItem(tokenKey)
-      say('Logged out')
+      say('Sesión cerrada')
     } else {
-      say(`Logout failed: ${r.status} ${r.data.error || ''}`)
+      say(`Error al cerrar sesión: ${r.status} ${r.data.error || ''}`)
     }
   } catch (e) {
-    log(`logout error: ${e.message}`)
+    log(`error de cierre de sesión: ${e.message}`)
   }
 })
 
 // Welcome message
 if (!localStorage.getItem('onboarded')) {
-  say('Welcome to Marshanta! Create an account or login to continue.')
+  say('¡Bienvenido a Marshanta! Crea una cuenta o inicia sesión para continuar.')
   localStorage.setItem('onboarded', '1')
 } else {
-  say('Welcome back!')
+  say('¡Bienvenido de nuevo!')
 }
 
 // Register service worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js').then(() => log('SW registered')).catch(e => log(`SW error: ${e.message}`))
+  navigator.serviceWorker.register('/service-worker.js').then(() => log('SW registrado')).catch(e => log(`Error de SW: ${e.message}`))
 }
