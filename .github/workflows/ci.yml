@@ -24,6 +24,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/**/package-lock.json
+            packages/**/package-lock.json
 
       - name: Install dependencies (workspaces)
         run: npm ci
