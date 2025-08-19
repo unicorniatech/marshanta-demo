@@ -31,13 +31,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Wait for Postgres
-        run: |
-          for i in {1..30}; do
-            nc -z postgres 5432 && echo "Postgres is up" && break
-            echo "Waiting for Postgres..." && sleep 2
-          done
-
       - name: Run migrations (pg)
         env:
           DATABASE_URL: postgresql://marshanta:marshanta@postgres:5432/marshanta
