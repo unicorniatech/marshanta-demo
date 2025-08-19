@@ -1,4 +1,5 @@
 import express from 'express'
+ 
 import { listRestaurants, getRestaurantById, listMenuItems } from '../db/adapter.js'
 
 export const restaurantsRouter = express.Router()
