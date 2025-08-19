@@ -1,8 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
 import morgan from 'morgan'
-import rateLimit from 'express-rate-limit'
+import expressRateLimit from 'express-rate-limit'
 import cors from 'cors'
+
 import { authRouter } from './routes/auth.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { ordersRouter } from './routes/orders.js'
@@ -27,15 +28,19 @@ app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true) // curl or same-origin
-      const allowed = process.env.NODE_ENV !== 'production' ? devOrigins.includes(origin) : false
-      return cb(allowed ? null : new Error('Not allowed by CORS'), allowed)
+      if (process.env.NODE_ENV !== 'production') {
+        // Allow any localhost/127.0.0.1 port in dev
+        const ok = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) || devOrigins.includes(origin)
+        return cb(ok ? null : new Error('Not allowed by CORS'), ok)
+      }
+      return cb(new Error('Not allowed by CORS'), false)
     },
     credentials: false
   })
 )
 
 // Basic rate limiting (global)
-const globalLimiter = rateLimit({
+const globalLimiter = expressRateLimit({
   windowMs: 60 * 1000,
   max: 120,
   standardHeaders: true,
@@ -66,6 +71,33 @@ app.use('/payments', paymentsRouter)
 // Example protected route
 app.get('/me', authGuard, (req, res) => {
   res.json({ user: { id: req.user.id, email: req.user.email, role: req.user.role } })
+})
+
+// Root info
+app.get('/', (req, res) => {
+  res.json({
+    ok: true,
+    service: 'api',
+    ts: Date.now(),
+    docs: 'See README.md for endpoints',
+    endpoints: [
+      'GET /healthz',
+      'POST /auth/register',
+      'POST /auth/login',
+      'POST /auth/logout',
+      'GET /me',
+      'GET /restaurants',
+      'GET /restaurants/:id/menu',
+      'POST /orders',
+      'GET /orders',
+      'GET /orders/:id',
+      'POST /orders/:id/status',
+      'POST /tracking/:orderId/stream',
+      'POST /payments/intent',
+      'POST /payments/confirm',
+      'POST /payments/webhook'
+    ]
+  })
 })
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000

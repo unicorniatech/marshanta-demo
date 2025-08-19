@@ -1,4 +1,5 @@
 import express from 'express'
+
 import { getOrderById } from '../db/adapter.js'
 
 export const trackingRouter = express.Router()

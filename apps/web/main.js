@@ -1,10 +1,13 @@
 /* global L */
 const apiBase = localStorage.getItem('apiBase') || (location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? 'http://localhost:4000' : '')
 const tokenKey = 'authToken'
+const userEmailKey = 'lastUserEmail'
 
 const els = {
   installBtn: document.getElementById('installBtn'),
   chat: document.getElementById('chat'),
+  chatInput: document.getElementById('chatInput'),
+  chatSendBtn: document.getElementById('chatSendBtn'),
   email: document.getElementById('email'),
   password: document.getElementById('password'),
   role: document.getElementById('role'),
@@ -79,6 +82,7 @@ function say(msg) {
 // ---------- Story 2.2 state ----------
 let selectedRestaurant = null
 let cart = [] // [{ restaurantId, itemId, name, priceCents, qty }]
+let lastMenuItems = []
 
 function formatPrice(cents) {
   const v = (cents || 0) / 100
@@ -136,6 +140,7 @@ async function selectRestaurant(r) {
 
 function renderMenu(items = []) {
   els.menuList.innerHTML = ''
+  lastMenuItems = items
   items.forEach(it => {
     const li = document.createElement('li')
     const add = document.createElement('button')
@@ -179,6 +184,7 @@ function renderCart() {
     els.cartList.appendChild(li)
   })
   els.cartTotal.textContent = formatPrice(total)
+  persistCart()
 }
 
 // ---------- Orders (Story 3.1) ----------
@@ -186,8 +192,11 @@ function summarizeCart() {
   if (!selectedRestaurant) return 'No restaurant selected.'
   if (!cart.length) return 'Cart is empty.'
   const lines = cart.map(c => `• ${c.name} x${c.qty} = ${formatPrice(c.priceCents * c.qty)}`)
-  const total = cart.reduce((acc, c) => acc + c.priceCents * c.qty, 0)
-  return `Order @ ${selectedRestaurant.name}\n${lines.join('\n')}\nTotal: ${formatPrice(total)}`
+  const subtotal = cart.reduce((acc, c) => acc + c.priceCents * c.qty, 0)
+  const taxes = Math.round(subtotal * 0.08)
+  const fees = Math.round(subtotal * 0.03)
+  const total = subtotal + taxes + fees
+  return `Order @ ${selectedRestaurant.name}\n${lines.join('\n')}\nSubtotal: ${formatPrice(subtotal)}\nTaxes: ${formatPrice(taxes)}\nFees: ${formatPrice(fees)}\nTotal: ${formatPrice(total)}`
 }
 
 async function placeOrder() {
@@ -203,6 +212,33 @@ async function placeOrder() {
   } else {
     say(`Failed to place order: ${r.status} ${r.data.error || ''}`)
   }
+}
+
+// ---------- Persistence ----------
+function currentUserKey() {
+  const email = localStorage.getItem(userEmailKey) || 'guest'
+  return `cart:${email}`
+}
+
+function persistCart() {
+  try {
+    const key = currentUserKey()
+    const data = { restaurant: selectedRestaurant ? { id: selectedRestaurant.id, name: selectedRestaurant.name } : null, cart }
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch (_) {}
+}
+
+function restoreCart() {
+  try {
+    const key = currentUserKey()
+    const raw = localStorage.getItem(key)
+    if (!raw) return
+    const data = JSON.parse(raw)
+    if (data && Array.isArray(data.cart)) {
+      cart = data.cart
+      renderCart()
+    }
+  } catch (_) {}
 }
 
 async function refreshOrders() {
@@ -360,6 +396,89 @@ els.reviewOrderBtn?.addEventListener('click', () => say(summarizeCart()))
 els.placeOrderBtn?.addEventListener('click', placeOrder)
 els.refreshOrdersBtn?.addEventListener('click', refreshOrders)
 els.stopTrackingBtn?.addEventListener('click', stopTracking)
+els.chatSendBtn?.addEventListener('click', onChatSend)
+els.chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') onChatSend() })
+
+function onChatSend() {
+  const text = (els.chatInput?.value || '').trim()
+  if (!text) return
+  els.chatInput.value = ''
+  say(`You: ${text}`)
+  handleChatCommand(text)
+}
+
+async function handleChatCommand(text) {
+  const t = text.toLowerCase()
+  if (t.startsWith('show restaurants') || t === 'restaurants' || t === 'show menus' || t === 'show menu') {
+    await loadRestaurants()
+    say('Loaded restaurants. Tap one above or type "menu <name>"')
+    return
+  }
+  if (t.startsWith('menu ')) {
+    const name = t.replace(/^menu\s+/, '').trim()
+    const r = await api('/restaurants')
+    if (r.ok) {
+      const found = (r.data.restaurants || []).find(x => x.name.toLowerCase().includes(name))
+      if (found) {
+        await selectRestaurant(found)
+        say(`Showing menu for ${found.name}`)
+      } else {
+        say(`Could not find restaurant matching "${name}"`)
+      }
+    } else {
+      say('Failed to load restaurants')
+    }
+    return
+  }
+  if (t.startsWith('add ')) {
+    // patterns: add 2 tacos | add tacos | add 3 "taco al pastor"
+    const m = t.match(/^add\s+(\d+)\s+(.+)$/) || t.match(/^add\s+(.+)$/)
+    let qty = 1
+    let itemName = ''
+    if (m) {
+      if (m.length === 3) { qty = parseInt(m[1], 10) || 1; itemName = m[2] } else { itemName = m[1] }
+      const it = (lastMenuItems || []).find(x => x.name.toLowerCase().includes(itemName))
+      if (!it) return say(`Item not found: ${itemName}`)
+      for (let i = 0; i < qty; i++) addToCart(it)
+      say(`Added ${qty} x ${it.name}`)
+    } else {
+      say('Try: add 2 tacos')
+    }
+    return
+  }
+  if (t.startsWith('remove ') || t.startsWith('delete ')) {
+    const m = t.match(/^(?:remove|delete)\s+(\d+)\s+(.+)$/) || t.match(/^(?:remove|delete)\s+(.+)$/)
+    let qty = 1
+    let itemName = ''
+    if (m) {
+      if (m.length === 3) { qty = parseInt(m[1], 10) || 1; itemName = m[2] } else { itemName = m[1] }
+      const idx = cart.findIndex(c => c.name.toLowerCase().includes(itemName))
+      if (idx === -1) return say(`Item not in cart: ${itemName}`)
+      cart[idx].qty -= qty
+      if (cart[idx].qty <= 0) cart.splice(idx, 1)
+      renderCart()
+      say(`Removed ${qty} x ${itemName}`)
+    } else {
+      say('Try: remove 1 tacos')
+    }
+    return
+  }
+  if (t === 'clear cart') {
+    cart = []
+    renderCart()
+    say('Cart cleared')
+    return
+  }
+  if (t === 'summary' || t === 'review') {
+    say(summarizeCart())
+    return
+  }
+  if (t === 'place order' || t === 'order') {
+    await placeOrder()
+    return
+  }
+  say("I didn't understand. Try: 'show restaurants', 'menu <name>', 'add 2 tacos', 'summary', 'place order'.")
+}
 
 // ---------- Restaurant Console ----------
 // Elements
@@ -425,7 +544,9 @@ els.registerBtn.addEventListener('click', async () => {
     const role = (els.role?.value) || 'client'
     const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
     if (r.ok) {
-      say(`Registered ${r.data.email}`)
+      const emailShown = r.data.email || email
+      try { localStorage.setItem(userEmailKey, emailShown) } catch (_) {}
+      say(`Registered ${emailShown}`)
     } else {
       say(`Register failed: ${r.status} ${r.data.error || ''}`)
     }
@@ -443,7 +564,10 @@ els.loginBtn.addEventListener('click', async () => {
       localStorage.setItem(tokenKey, r.data.token)
       say('Logged in')
       const me = await api('/me')
-      if (me.ok) say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
+      if (me.ok) {
+        try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
+        say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
+      }
     } else {
       say(`Login failed: ${r.status} ${r.data.error || ''}`)
     }
@@ -467,11 +591,21 @@ els.logoutBtn.addEventListener('click', async () => {
 })
 
 // Welcome message
-if (!localStorage.getItem('onboarded')) {
-  say('Welcome to Marshanta! Create an account or login to continue.')
-  localStorage.setItem('onboarded', '1')
-} else {
-  say('Welcome back!')
+try {
+  const onboarded = localStorage.getItem('onboarded')
+  if (!onboarded) {
+    say('Welcome to Marshanta!')
+    say('How to order: 1) Load restaurants, 2) Pick a restaurant and add items, 3) Place order, 4) Pay and track delivery.')
+    say('Create an account or login to continue.')
+    localStorage.setItem('onboarded', '1')
+  } else {
+    const lastEmail = localStorage.getItem(userEmailKey)
+    if (lastEmail) say(`Welcome back, ${lastEmail}!`)
+    else say('Welcome back!')
+  }
+} catch (_) {
+  // storage may be unavailable; proceed without persistence
+  say('Welcome to Marshanta!')
 }
 
 // Register service worker

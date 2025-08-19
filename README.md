@@ -1,5 +1,7 @@
 # Marshanta Monorepo
 
+[![CI](https://github.com/unicorniatech/marshanta-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/unicorniatech/marshanta-demo/actions/workflows/ci.yml)
+
 Greenfield project using BMAD method. See sprint plans and stories for scope and acceptance criteria.
 
 ## Structure
@@ -71,10 +73,16 @@ Core flows (Sprint 1):
 
 ## CI
 
-GitHub Actions workflow `ci.yml` runs on PRs and main:
-- Installs deps via npm workspaces.
-- Runs API smoke test `apps/api/scripts/smoke.js` (health, restaurants/menu, create order).
-- Runs web smoke test `apps/web/scripts/smoke.js` to verify the homepage serves.
+GitHub Actions workflow `ci.yml` runs on PRs and main. Key details:
+- Runs the job in a `node:20` container for consistent tooling/networking.
+- Uses a Postgres service; connect via host `postgres` (not `localhost`). Example `DATABASE_URL`:
+  `postgresql://marshanta:marshanta@postgres:5432/marshanta`.
+- Uses npm workspaces and enables npm cache to speed up installs.
+- Applies API SQL migrations, runs API integration tests and API smoke.
+- Runs Web smoke `apps/web/scripts/smoke.js` which serves static files locally and verifies `/`.
+
+DB roles: The `users.role` check constraint allows `client`, `staff`, and `admin`. A migration updates
+the schema to include `staff`.
 
 ## Demo Walkthrough
 
