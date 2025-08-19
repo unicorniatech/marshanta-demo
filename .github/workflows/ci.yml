@@ -15,8 +15,6 @@ jobs:
           POSTGRES_DB: marshanta
           POSTGRES_USER: marshanta
           POSTGRES_PASSWORD: marshanta
-        ports:
-          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U marshanta -d marshanta" \
           --health-interval 10s \
@@ -40,27 +38,27 @@ jobs:
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
-            nc -z 127.0.0.1 5432 && echo "Postgres is up" && break
+            nc -z postgres 5432 && echo "Postgres is up" && break
             echo "Waiting for Postgres..." && sleep 2
           done
 
       - name: Run migrations (pg)
         env:
-          DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
+          DATABASE_URL: postgresql://marshanta:marshanta@postgres:5432/marshanta
         run: npm --workspace @marshanta/api run db:migrate
 
       - name: API integration tests (pg)
         env:
           NODE_ENV: test
           DB_DRIVER: pg
-          DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
+          DATABASE_URL: postgresql://marshanta:marshanta@postgres:5432/marshanta
         run: npm --workspace @marshanta/api test
 
       - name: API smoke test (pg)
         env:
           NODE_ENV: test
           DB_DRIVER: pg
-          DATABASE_URL: postgresql://marshanta:marshanta@127.0.0.1:5432/marshanta
+          DATABASE_URL: postgresql://marshanta:marshanta@postgres:5432/marshanta
         run: node apps/api/scripts/smoke.js
 
       - name: Web smoke test
