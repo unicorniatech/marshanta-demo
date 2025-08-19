@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+/* eslint import/order: 0 */
 import 'dotenv/config'
 import request from 'supertest'
- 
+
 import app from '../src/index.js'
 
 // Minimal test runner
