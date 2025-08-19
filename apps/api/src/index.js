@@ -1,8 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
 import morgan from 'morgan'
-import rateLimit from 'express-rate-limit'
+import { rateLimit } from 'express-rate-limit'
 import cors from 'cors'
+ 
 import { authRouter } from './routes/auth.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { ordersRouter } from './routes/orders.js'
