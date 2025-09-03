@@ -181,3 +181,20 @@ export async function updateOrderPaymentStatus(id, paymentStatus) {
     createdAt: new Date(o.created_at).getTime()
   }
 }
+
+// ---- Payments persistence (Story 2.4) ----
+export async function savePaymentReceipt({ orderId, provider, amountCents, currency, raw }) {
+  const { rows } = await q('INSERT INTO payment_receipts (order_id, provider, amount_cents, currency, raw) VALUES ($1,$2,$3,$4,$5) RETURNING id, order_id, provider, amount_cents, currency, raw, created_at', [orderId, provider, amountCents, currency || 'USD', raw ? JSON.stringify(raw) : null])
+  const r = rows[0]
+  return { id: r.id, orderId: r.order_id, provider: r.provider, amountCents: Number(r.amount_cents), currency: r.currency, raw: r.raw, createdAt: new Date(r.created_at).getTime() }
+}
+
+export async function hasProcessedPaymentEvent(eventId) {
+  const { rows } = await q('SELECT 1 FROM payment_events WHERE event_id=$1 LIMIT 1', [String(eventId)])
+  return rows.length > 0
+}
+
+export async function markPaymentEventProcessed(eventId) {
+  await q('INSERT INTO payment_events (event_id) VALUES ($1) ON CONFLICT (event_id) DO NOTHING', [String(eventId)])
+  return true
+}

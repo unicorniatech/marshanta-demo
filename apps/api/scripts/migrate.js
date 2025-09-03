@@ -19,13 +19,23 @@ async function main() {
     return
   }
 
-  const url = process.env.DATABASE_URL
+  const url = process.env.DIRECT_URL || process.env.DATABASE_URL
   if (!url) {
-    console.error('DATABASE_URL not set. See .env.example')
+    console.error('DIRECT_URL/DATABASE_URL not set. See .env.example')
     process.exit(1)
   }
 
-  const client = new Client({ connectionString: url })
+  // Enable SSL for hosted Postgres providers like Supabase.
+  // Parse URL explicitly to avoid conflicts between connectionString params and pg's ssl config.
+  const u = new URL(url)
+  const client = new Client({
+    host: u.hostname,
+    port: Number(u.port || 5432),
+    database: u.pathname?.replace(/^\//, '') || 'postgres',
+    user: decodeURIComponent(u.username || ''),
+    password: decodeURIComponent(u.password || ''),
+    ssl: { rejectUnauthorized: false, require: true }
+  })
   await client.connect()
 
   try {

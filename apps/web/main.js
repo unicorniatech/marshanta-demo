@@ -2,6 +2,7 @@
 const apiBase = localStorage.getItem('apiBase') || (location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? 'http://localhost:4000' : '')
 const tokenKey = 'authToken'
 const userEmailKey = 'lastUserEmail'
+const userRoleKey = 'lastUserRole'
 
 const els = {
   installBtn: document.getElementById('installBtn'),
@@ -16,6 +17,7 @@ const els = {
   logoutBtn: document.getElementById('logoutBtn'),
   log: document.getElementById('log'),
   apiBase: document.getElementById('apiBase'),
+  roleBadge: document.getElementById('roleBadge'),
   loadRestaurantsBtn: document.getElementById('loadRestaurantsBtn'),
   restaurantsList: document.getElementById('restaurantsList'),
   menuHeader: document.getElementById('menuHeader'),
@@ -53,6 +55,8 @@ async function startPaymentFlow(orderId) {
 }
 
 els.apiBase.textContent = apiBase
+// Initialize role UI badge and RC controls on load
+updateRoleUI()
 
 let deferredPrompt
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -83,10 +87,54 @@ function say(msg) {
 let selectedRestaurant = null
 let cart = [] // [{ restaurantId, itemId, name, priceCents, qty }]
 let lastMenuItems = []
+let currentRole = (localStorage.getItem(userRoleKey) || '').toLowerCase()
+
+function isStaff() {
+  return currentRole === 'staff' || currentRole === 'admin'
+}
+
+function updateRoleUI() {
+  try {
+    const rcRestaurantEl = document.getElementById('rcRestaurant')
+    const loadBtn = document.getElementById('rcLoadOrdersBtn')
+    const rcHint = document.getElementById('rcHint')
+    const badge = els.roleBadge
+    const roleText = currentRole || 'guest'
+    if (badge) badge.textContent = `role: ${roleText}`
+    if (loadBtn) {
+      loadBtn.disabled = !isStaff()
+      loadBtn.title = isStaff() ? '' : 'Restaurant Console is available to staff or admin only.'
+    }
+    if (rcRestaurantEl) {
+      rcRestaurantEl.disabled = !isStaff()
+      rcRestaurantEl.title = isStaff() ? '' : 'Login as staff or admin to select a restaurant.'
+    }
+    if (rc.statusFilter) {
+      rc.statusFilter.disabled = !isStaff()
+      rc.statusFilter.title = isStaff() ? '' : 'Login as staff or admin to filter orders.'
+    }
+    if (rc.autoRefresh) {
+      rc.autoRefresh.disabled = !isStaff()
+      rc.autoRefresh.title = isStaff() ? '' : 'Login as staff or admin to enable auto-refresh.'
+      if (!isStaff()) {
+        rc.autoRefresh.checked = false
+        stopRcAuto()
+      }
+    }
+    if (rcHint) rcHint.style.display = isStaff() ? 'none' : ''
+  } catch (_) {}
+}
 
 function formatPrice(cents) {
   const v = (cents || 0) / 100
   return v.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
+}
+
+function createBadge(text, cls) {
+  const span = document.createElement('span')
+  span.className = `badge ${cls || ''}`.trim()
+  span.textContent = text
+  return span
 }
 
 async function api(path, { method = 'GET', body } = {}) {
@@ -203,14 +251,19 @@ async function placeOrder() {
   if (!selectedRestaurant) return say('Please select a restaurant before placing an order.')
   if (!cart.length) return say('Add items to the cart first.')
   const items = cart.map(c => ({ itemId: c.itemId, name: c.name, priceCents: c.priceCents, qty: c.qty }))
-  const r = await api('/orders', { method: 'POST', body: { restaurantId: selectedRestaurant.id, items } })
-  if (r.ok) {
-    say(`Order placed! ID: ${r.data.order.id}, status: ${r.data.order.status}`)
-    cart = []
-    renderCart()
-    await refreshOrders()
-  } else {
-    say(`Failed to place order: ${r.status} ${r.data.error || ''}`)
+  try {
+    els.placeOrderBtn.disabled = true
+    const r = await api('/orders', { method: 'POST', body: { restaurantId: selectedRestaurant.id, items } })
+    if (r.ok) {
+      say(`Order placed! ID: ${r.data.order.id}, status: ${r.data.order.status}`)
+      cart = []
+      renderCart()
+      await refreshOrders()
+    } else {
+      say(`Failed to place order: ${r.status} ${r.data.error || ''}`)
+    }
+  } finally {
+    els.placeOrderBtn.disabled = false
   }
 }
 
@@ -252,21 +305,25 @@ function renderOrders(rows = []) {
   rows.forEach(o => {
     const li = document.createElement('li')
     const title = document.createElement('div')
-    title.textContent = `#${o.id} — R${o.restaurantId} — ${o.status}`
+    title.textContent = `#${o.id} — R${o.restaurantId}`
+    const st = createBadge(o.status, `status status-${o.status}`)
+    st.style.marginLeft = '8px'
+    title.appendChild(st)
     li.appendChild(title)
     const items = document.createElement('div')
     items.className = 'muted'
     items.textContent = (o.items || []).map(i => `${i.name} x${i.qty}`).join(', ')
     li.appendChild(items)
-    const pay = document.createElement('div')
-    pay.className = 'muted'
-    pay.textContent = `Payment: ${o.paymentStatus || 'Unpaid'}`
-    li.appendChild(pay)
+    const payBadge = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
+    li.appendChild(payBadge)
     const next = nextStatus(o.status)
-    if (next) {
+    if (next && isStaff()) {
       const btn = document.createElement('button')
       btn.textContent = `Advance → ${next}`
-      btn.addEventListener('click', () => advanceOrder(o.id, next))
+      btn.addEventListener('click', async () => {
+        btn.disabled = true
+        try { await advanceOrder(o.id, next) } finally { btn.disabled = false }
+      })
       li.appendChild(btn)
     }
     if (!o.paymentStatus || o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Failed') {
@@ -485,6 +542,8 @@ async function handleChatCommand(text) {
 const rc = {
   restaurant: document.getElementById('rcRestaurant'),
   loadBtn: document.getElementById('rcLoadOrdersBtn'),
+  statusFilter: document.getElementById('rcStatusFilter'),
+  autoRefresh: document.getElementById('rcAutoRefresh'),
   list: document.getElementById('rcOrdersList')
 }
 
@@ -499,6 +558,7 @@ async function initRestaurantConsole() {
       opt.textContent = `${x.name}`
       rc.restaurant.appendChild(opt)
     })
+    updateRoleUI()
   } catch (_) {
     // ignore errors during initial load
   }
@@ -506,10 +566,41 @@ async function initRestaurantConsole() {
 
 async function rcLoadOrders() {
   const rid = rc.restaurant.value
-  if (!rid) return
-  const r = await api(`/orders?restaurantId=${encodeURIComponent(rid)}`)
-  if (!r.ok) return say(`Failed to load orders for restaurant ${rid}: ${r.status}`)
-  renderRcOrders(r.data.orders || [])
+  if (!isStaff()) {
+    return say('Restaurant Console is available to staff or admin only. Please login as staff/admin.')
+  }
+  if (!rid) {
+    return say('Please select a restaurant to load orders.')
+  }
+  try {
+    rc.loadBtn.disabled = true
+    const r = await api(`/orders?restaurantId=${encodeURIComponent(rid)}`)
+    if (!r.ok) return say(`Failed to load orders for restaurant ${rid}: ${r.status}`)
+    const all = r.data.orders || []
+    const f = (rc.statusFilter?.value || 'all')
+    const rows = f === 'all' ? all : all.filter(x => x.status === f)
+    renderRcOrders(rows)
+  } finally {
+    rc.loadBtn.disabled = !isStaff()
+  }
+}
+
+let rcAutoTimer = null
+
+function stopRcAuto() {
+  if (rcAutoTimer) {
+    clearInterval(rcAutoTimer)
+    rcAutoTimer = null
+  }
+}
+
+function startRcAuto() {
+  stopRcAuto()
+  if (!isStaff()) return
+  if (!rc.autoRefresh?.checked) return
+  rcAutoTimer = setInterval(() => {
+    rcLoadOrders().catch(() => {})
+  }, 5000)
 }
 
 function renderRcOrders(rows = []) {
@@ -517,7 +608,13 @@ function renderRcOrders(rows = []) {
   rows.forEach(o => {
     const li = document.createElement('li')
     const title = document.createElement('div')
-    title.textContent = `#${o.id} — ${o.status} — Payment: ${o.paymentStatus || 'Unpaid'}`
+    title.textContent = `#${o.id}`
+    const st = createBadge(o.status, `status status-${o.status}`)
+    st.style.marginLeft = '8px'
+    const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
+    pb.style.marginLeft = '6px'
+    title.appendChild(st)
+    title.appendChild(pb)
     li.appendChild(title)
     const items = document.createElement('div')
     items.className = 'muted'
@@ -527,7 +624,10 @@ function renderRcOrders(rows = []) {
     if (next) {
       const btn = document.createElement('button')
       btn.textContent = `Advance → ${next}`
-      btn.addEventListener('click', async () => { await advanceOrder(o.id, next); await rcLoadOrders() })
+      btn.addEventListener('click', async () => {
+        btn.disabled = true
+        try { await advanceOrder(o.id, next); await rcLoadOrders() } finally { btn.disabled = false }
+      })
       li.appendChild(btn)
     }
     rc.list.appendChild(li)
@@ -537,11 +637,19 @@ function renderRcOrders(rows = []) {
 rc.loadBtn?.addEventListener('click', rcLoadOrders)
 initRestaurantConsole()
 
+// RC filter + auto-refresh wiring
+rc.statusFilter?.addEventListener('change', () => { if (isStaff()) rcLoadOrders() })
+rc.autoRefresh?.addEventListener('change', () => { if (rc.autoRefresh.checked) startRcAuto(); else stopRcAuto() })
+
 els.registerBtn.addEventListener('click', async () => {
   try {
     const email = els.email.value.trim()
     const password = els.password.value
     const role = (els.role?.value) || 'client'
+    // Basic validation
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Please enter a valid email.')
+    if (!password || password.length < 6) return say('Password must be at least 6 characters.')
+    if (!['client','staff','admin'].includes(role)) return say('Invalid role selected.')
     const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
     if (r.ok) {
       const emailShown = r.data.email || email
@@ -559,6 +667,8 @@ els.loginBtn.addEventListener('click', async () => {
   try {
     const email = els.email.value.trim()
     const password = els.password.value
+    if (!email) return say('Please enter your email.')
+    if (!password) return say('Please enter your password.')
     const r = await api('/auth/login', { method: 'POST', body: { email, password } })
     if (r.ok && r.data.token) {
       localStorage.setItem(tokenKey, r.data.token)
@@ -566,7 +676,10 @@ els.loginBtn.addEventListener('click', async () => {
       const me = await api('/me')
       if (me.ok) {
         try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
+        try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
         say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
+        updateRoleUI()
+        startRcAuto()
       }
     } else {
       say(`Login failed: ${r.status} ${r.data.error || ''}`)
@@ -581,6 +694,8 @@ els.logoutBtn.addEventListener('click', async () => {
     const r = await api('/auth/logout', { method: 'POST' })
     if (r.ok) {
       localStorage.removeItem(tokenKey)
+      try { localStorage.removeItem(userRoleKey); currentRole = ''; updateRoleUI() } catch (_) {}
+      stopRcAuto()
       say('Logged out')
     } else {
       say(`Logout failed: ${r.status} ${r.data.error || ''}`)

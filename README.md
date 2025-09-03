@@ -80,6 +80,7 @@ GitHub Actions workflow `ci.yml` runs on PRs and main. Key details:
 - Uses npm workspaces and enables npm cache to speed up installs.
 - Applies API SQL migrations, runs API integration tests and API smoke.
 - Runs Web smoke `apps/web/scripts/smoke.js` which serves static files locally and verifies `/`.
+ - Runs Playwright E2E flows under `apps/web/tests/e2e` via `npm -w apps/web run e2e:flows`.
 
 DB roles: The `users.role` check constraint allows `client`, `staff`, and `admin`. A migration updates
 the schema to include `staff`.
@@ -110,6 +111,23 @@ To apply migrations to a local PostgreSQL instance:
 Notes:
 - Current runtime uses an in-memory driver by default (`DB_DRIVER=memory`).
 - Switch drivers later by updating the adapter config when a DB is provisioned.
+
+### Postgres/Supabase runbook (local + CI)
+
+- Pooled vs Direct URLs:
+  - `DATABASE_URL` is the pooled connection string used at runtime by `apps/api/src/db/pg.js`.
+  - `DIRECT_URL` is the direct (primary) connection string used by migrations `apps/api/scripts/migrate.js`.
+- SSL and URL-encoding:
+  - Append `?sslmode=require` to both URLs when using Supabase.
+  - If your password contains special characters (e.g., `@`), URL-encode it.
+- Local dev:
+  - Set `DB_DRIVER=pg`, `DATABASE_URL`, and `DIRECT_URL` in `.env`.
+  - Run `npm -w @marshanta/api run db:migrate`.
+  - Start API on port 4000: `npm run -w @marshanta/api dev`.
+  - Web uses `http://localhost:4000` automatically for `apiBase` in `apps/web/main.js` when on localhost.
+- CI:
+  - GitHub Actions spins up a `postgres` service and runs migrations with both `DATABASE_URL` and `DIRECT_URL` set.
+  - Integration tests run with `DB_DRIVER=pg`.
 
 ## BMAD
 

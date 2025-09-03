@@ -11,6 +11,8 @@ const restaurants = [] // { id, name, address, phone }
 const menus = new Map() // restaurantId -> [{ id, name, priceCents }]
 const deliveryPartners = [] // { id, name, phone, vehicleType }
 const orders = [] // { id, restaurantId, items: [{ itemId, name, priceCents, qty }], status, paymentStatus, createdAt }
+const paymentReceipts = [] // { id, orderId, provider, amountCents, currency, raw }
+const processedPaymentEvents = new Set() // eventId strings
 
 export async function createUser({ email, passwordHash, name, phone, role = 'client' }) {
   const existing = users.find(u => u.email.toLowerCase() === String(email).toLowerCase())
@@ -113,6 +115,23 @@ export async function updateOrderPaymentStatus(id, paymentStatus) {
   if (!o) throw new Error('Not found')
   o.paymentStatus = paymentStatus
   return { ...o, items: o.items.map(i => ({ ...i })) }
+}
+
+// ---- Payments persistence (Story 2.4) ----
+export async function savePaymentReceipt({ orderId, provider, amountCents, currency, raw }) {
+  const id = paymentReceipts.length + 1
+  const rec = { id, orderId: Number(orderId), provider: String(provider), amountCents: Number(amountCents) || 0, currency: String(currency || 'USD'), raw: raw ? JSON.parse(JSON.stringify(raw)) : null }
+  paymentReceipts.push(rec)
+  return { ...rec }
+}
+
+export async function hasProcessedPaymentEvent(eventId) {
+  return processedPaymentEvents.has(String(eventId))
+}
+
+export async function markPaymentEventProcessed(eventId) {
+  processedPaymentEvents.add(String(eventId))
+  return true
 }
 
 // Seed minimal data for Story 2.2

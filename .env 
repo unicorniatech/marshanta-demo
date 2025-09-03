@@ -1,0 +1,17 @@
+# App
+NODE_ENV=development
+PORT=4000
+PUBLIC_APP_NAME=Marshanta
+
+# Auth (keep secret)
+AUTH_SECRET=change_me
+MOCK_WEBHOOK_SECRET=dev_secret
+
+# Database
+DB_DRIVER=pg
+
+# Runtime (pooled via PgBouncer) — use this for starting the API
+DATABASE_URL="postgresql://postgres.vpxegbatedeswlucpsou:637WHb-kk%40FWVWS@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true"
+
+# Migrations (direct, primary) — use this for running migrations
+DIRECT_URL="postgresql://postgres.vpxegbatedeswlucpsou:637WHb-kk%40FWVWS@db.vpxegbatedeswlucpsou.supabase.co:5432/postgres?sslmode=require"

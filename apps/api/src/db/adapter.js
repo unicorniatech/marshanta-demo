@@ -36,3 +36,8 @@ export const listOrders = driver.listOrders
 export const getOrderById = driver.getOrderById
 export const updateOrderStatus = driver.updateOrderStatus
 export const updateOrderPaymentStatus = driver.updateOrderPaymentStatus
+
+// Payments persistence (Story 2.4)
+export const savePaymentReceipt = driver.savePaymentReceipt
+export const hasProcessedPaymentEvent = driver.hasProcessedPaymentEvent
+export const markPaymentEventProcessed = driver.markPaymentEventProcessed

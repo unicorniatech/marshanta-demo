@@ -36,9 +36,15 @@ async function run() {
 import health from '../tests/health.test.js'
 import restaurants from '../tests/restaurants.test.js'
 import orders from '../tests/orders.test.js'
+import unauthorized from '../tests/unauthorized.test.js'
+import paymentsFailed from '../tests/payments_failed.test.js'
+import paymentsWebhook from '../tests/payments_webhook.test.js'
 
 register('health endpoint', health)
 register('restaurants and menus', restaurants)
 register('orders flow with mocked payments', orders)
+register('unauthorized and client-forbidden transitions', unauthorized)
+register('payments failed outcome', paymentsFailed)
+register('payments webhook signature + idempotency', paymentsWebhook)
 
 run().catch(err => { console.error(err); process.exit(1) })
