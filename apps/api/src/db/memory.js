@@ -150,3 +150,16 @@ export async function markPaymentEventProcessed(eventId) {
     { id: 2, name: 'Refresco', priceCents: 1800 }
   ])
 })()
+
+// ----- Admin (read-only) -----
+export async function listUsers() {
+  return users.map(u => ({ id: u.id, email: u.email, role: u.role }))
+}
+
+export async function getAdminMetrics() {
+  const usersTotal = users.length
+  const restaurantsTotal = restaurants.length
+  const ordersTotal = orders.length
+  const revenueCents = paymentReceipts.reduce((sum, r) => sum + (Number(r.amountCents) || 0), 0)
+  return { usersTotal, restaurantsTotal, ordersTotal, revenueCents }
+}

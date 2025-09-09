@@ -138,6 +138,39 @@
         </div>
       </section>
 
+      <section class="card" id="adminSection" style="display:none">
+        <h3>Admin Dashboard</h3>
+        <p class="muted">Desktop-focused admin view. Visible only to users with role <code>admin</code>.</p>
+        <div class="row" style="gap:12px; align-items:center">
+          <div class="badge" title="Total users"><span id="admUsers">0</span> users</div>
+          <div class="badge" title="Total restaurants"><span id="admRestaurants">0</span> restaurants</div>
+          <div class="badge" title="Total orders"><span id="admOrders">0</span> orders</div>
+          <div class="badge" title="Total revenue"><span id="admRevenue">$0.00</span> revenue</div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+            <span class="badge" id="admBell" title="Unread notifications">0</span>
+            <button id="admRefreshBtn" title="Refresh admin data">Refresh</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div style="flex:1; min-width:280px">
+            <h4>Users</h4>
+            <ul id="admUsersList"></ul>
+          </div>
+          <div style="flex:1; min-width:280px">
+            <h4>Restaurants</h4>
+            <ul id="admRestaurantsList"></ul>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Orders</h4>
+          <ul id="admOrdersList"></ul>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Notifications</h4>
+          <ul id="admNotifications"></ul>
+        </div>
+      </section>
+
       <section class="card">
         <h3>Debug</h3>
         <div id="log" class="log"></div>

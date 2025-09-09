@@ -1,6 +1,7 @@
 import express from 'express'
 
 import { getOrderById, updateOrderPaymentStatus, savePaymentReceipt, hasProcessedPaymentEvent, markPaymentEventProcessed } from '../db/adapter.js'
+import { emitAdminEvent } from '../lib/events.js'
 import { createIntent, confirmPayment, verifyAndParseWebhook } from '../lib/payments/adapter.js'
 
 export const paymentsRouter = express.Router()
@@ -24,6 +25,7 @@ paymentsRouter.post('/confirm', async (req, res) => {
   const result = await confirmPayment({ order: o, clientSecret, outcome })
   const updated = await updateOrderPaymentStatus(orderId, result.status)
   await savePaymentReceipt({ orderId: updated.id, provider: result.provider || 'mock', amountCents: result.receipt?.amountCents || 0, currency: result.receipt?.currency || 'USD', raw: result.receipt || null })
+  emitAdminEvent({ type: 'payment_updated', orderId: updated.id, restaurantId: updated.restaurantId, message: `Payment ${updated.paymentStatus} for order #${updated.id}` })
   res.json({ paymentStatus: updated.paymentStatus, order: updated })
 })
 
@@ -33,12 +35,17 @@ paymentsRouter.post('/webhook', async (req, res) => {
     const parsed = await verifyAndParseWebhook({ headers: req.headers, rawBody: req.body })
     // Idempotency check
     const seen = await hasProcessedPaymentEvent(parsed.eventId)
-    if (seen) return res.json({ ok: true, duplicate: true })
+    if (seen) {
+      emitAdminEvent({ type: 'webhook_duplicate', orderId: parsed.orderId, message: `Duplicate webhook ${parsed.eventId}` })
+      return res.json({ ok: true, duplicate: true })
+    }
     if (parsed.status) await updateOrderPaymentStatus(parsed.orderId, parsed.status)
     await markPaymentEventProcessed(parsed.eventId)
+    emitAdminEvent({ type: 'payment_webhook', orderId: parsed.orderId, message: `Webhook processed ${parsed.eventId} status=${parsed.status || 'N/A'}` })
     res.json({ ok: true })
   } catch (e) {
     const status = e.code === 'INVALID_SIGNATURE' ? 401 : 400
+    try { emitAdminEvent({ type: 'payment_webhook_error', severity: 'warn', message: e.message || 'webhook error' }) } catch (_) {}
     res.status(status).json({ error: e.message || 'webhook error' })
   }
 })

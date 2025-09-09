@@ -95,6 +95,23 @@ function isStaff() {
 
 function updateRoleUI() {
   try {
+    // Admin section visibility
+    const adminSection = document.getElementById('adminSection')
+    if (adminSection) {
+      const isAdmin = currentRole === 'admin'
+      adminSection.style.display = isAdmin ? '' : 'none'
+      if (isAdmin) {
+        // Load admin data and ensure SSE is connected
+        loadAdmin().catch(() => {})
+        startAdminSse()
+      } else {
+        // Hide admin: stop SSE and reset unread
+        stopAdminSse()
+        adminUnread = 0
+        updateAdminBadge()
+      }
+    }
+
     const rcRestaurantEl = document.getElementById('rcRestaurant')
     const loadBtn = document.getElementById('rcLoadOrdersBtn')
     const rcHint = document.getElementById('rcHint')
@@ -446,6 +463,123 @@ function resetMap() {
   }
 }
 
+// ---------- Admin (read-only) ----------
+async function loadAdmin() {
+  if (currentRole !== 'admin') return
+  try {
+    const [m, u, r, o] = await Promise.all([
+      api('/admin/metrics'),
+      api('/admin/users'),
+      api('/admin/restaurants'),
+      api('/admin/orders')
+    ])
+    if (m.ok) renderAdminMetrics(m.data.metrics)
+    if (u.ok) renderAdminUsers(u.data.users || [])
+    if (r.ok) renderAdminRestaurants(r.data.restaurants || [])
+    if (o.ok) renderAdminOrders(o.data.orders || [])
+  } catch (e) {
+    log(`admin load error: ${e.message}`)
+  }
+}
+
+function renderAdminMetrics(metrics = {}) {
+  const { usersTotal = 0, restaurantsTotal = 0, ordersTotal = 0, revenueCents = 0 } = metrics
+  const u = document.getElementById('admUsers')
+  const r = document.getElementById('admRestaurants')
+  const o = document.getElementById('admOrders')
+  const rev = document.getElementById('admRevenue')
+  if (u) u.textContent = String(usersTotal)
+  if (r) r.textContent = String(restaurantsTotal)
+  if (o) o.textContent = String(ordersTotal)
+  if (rev) rev.textContent = formatPrice(Number(revenueCents) || 0)
+}
+
+function renderAdminUsers(rows = []) {
+  const list = document.getElementById('admUsersList')
+  if (!list) return
+  list.innerHTML = ''
+  rows.forEach(x => {
+    const li = document.createElement('li')
+    li.textContent = `#${x.id} — ${x.email} (${x.role})`
+    list.appendChild(li)
+  })
+}
+
+function renderAdminRestaurants(rows = []) {
+  const list = document.getElementById('admRestaurantsList')
+  if (!list) return
+  list.innerHTML = ''
+  rows.forEach(x => {
+    const li = document.createElement('li')
+    li.textContent = `#${x.id} — ${x.name}`
+    list.appendChild(li)
+  })
+}
+
+function renderAdminOrders(rows = []) {
+  const list = document.getElementById('admOrdersList')
+  if (!list) return
+  list.innerHTML = ''
+  rows.forEach(o => {
+    const li = document.createElement('li')
+    const st = createBadge(o.status, `status status-${o.status}`)
+    const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
+    li.textContent = `#${o.id} — R${o.restaurantId} `
+    li.appendChild(st)
+    li.appendChild(pb)
+    list.appendChild(li)
+  })
+}
+
+// Admin notifications (SSE)
+let adminEs = null
+let adminUnread = 0
+
+function showAdminToast(msg) {
+  say(`[ADMIN] ${msg}`)
+}
+
+function updateAdminBadge() {
+  const u = document.getElementById('admUsers') // reuse badge row to show count subtly
+  if (!u) return
+  const badge = document.getElementById('admBell')
+  if (badge) badge.textContent = String(adminUnread)
+}
+
+function startAdminSse() {
+  try { stopAdminSse() } catch (_) {}
+  if (currentRole !== 'admin') return
+  const token = localStorage.getItem(tokenKey)
+  if (!token) return
+  const url = `${apiBase}/admin/events?token=${encodeURIComponent(token)}`
+  adminEs = new EventSource(url)
+  adminEs.onmessage = (ev) => {
+    try {
+      const evt = JSON.parse(ev.data)
+      adminUnread += 1
+      updateAdminBadge()
+      const m = evt.message || evt.type
+      showAdminToast(m)
+      // Append to a simple list if present
+      const list = document.getElementById('admNotifications')
+      if (list) {
+        const li = document.createElement('li')
+        li.textContent = `${new Date(evt.ts || Date.now()).toLocaleTimeString()} — ${evt.type}: ${m}`
+        list.prepend(li)
+      }
+    } catch (_) {}
+  }
+  adminEs.addEventListener('ping', () => {/* heartbeat */})
+  adminEs.onerror = () => {
+    // attempt a lightweight reconnect after a delay
+    setTimeout(() => { startAdminSse() }, 3000)
+  }
+}
+
+function stopAdminSse() {
+  if (adminEs) { try { adminEs.close() } catch (_) {} adminEs = null }
+}
+
 // ---------- UI wiring ----------
 els.loadRestaurantsBtn?.addEventListener('click', loadRestaurants)
 els.clearCartBtn?.addEventListener('click', () => { cart = []; renderCart() })
@@ -455,6 +589,7 @@ els.refreshOrdersBtn?.addEventListener('click', refreshOrders)
 els.stopTrackingBtn?.addEventListener('click', stopTracking)
 els.chatSendBtn?.addEventListener('click', onChatSend)
 els.chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') onChatSend() })
+document.getElementById('admRefreshBtn')?.addEventListener('click', () => { loadAdmin().catch(()=>{}) })
 
 function onChatSend() {
   const text = (els.chatInput?.value || '').trim()
@@ -680,6 +815,9 @@ els.loginBtn.addEventListener('click', async () => {
         say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
         updateRoleUI()
         startRcAuto()
+        if (currentRole === 'admin') {
+          await loadAdmin()
+        }
       }
     } else {
       say(`Login failed: ${r.status} ${r.data.error || ''}`)
@@ -696,6 +834,9 @@ els.logoutBtn.addEventListener('click', async () => {
       localStorage.removeItem(tokenKey)
       try { localStorage.removeItem(userRoleKey); currentRole = ''; updateRoleUI() } catch (_) {}
       stopRcAuto()
+      stopAdminSse()
+      adminUnread = 0
+      updateAdminBadge()
       say('Logged out')
     } else {
       say(`Logout failed: ${r.status} ${r.data.error || ''}`)

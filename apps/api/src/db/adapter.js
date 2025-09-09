@@ -41,3 +41,7 @@ export const updateOrderPaymentStatus = driver.updateOrderPaymentStatus
 export const savePaymentReceipt = driver.savePaymentReceipt
 export const hasProcessedPaymentEvent = driver.hasProcessedPaymentEvent
 export const markPaymentEventProcessed = driver.markPaymentEventProcessed
+
+// Admin (read-only)
+export const listUsers = driver.listUsers
+export const getAdminMetrics = driver.getAdminMetrics

@@ -9,6 +9,7 @@ import { restaurantsRouter } from './routes/restaurants.js'
 import { ordersRouter } from './routes/orders.js'
 import { trackingRouter } from './routes/tracking.js'
 import { paymentsRouter } from './routes/payments.js'
+import { adminRouter } from './routes/admin.js'
 import { authGuard } from './lib/auth.js'
 
 const app = express()
@@ -67,6 +68,9 @@ app.use('/tracking', trackingRouter)
 
 // Payments (mock)
 app.use('/payments', paymentsRouter)
+
+// Admin (read-only, requires admin role via router middleware)
+app.use('/admin', adminRouter)
 
 // Example protected route
 app.get('/me', authGuard, (req, res) => {

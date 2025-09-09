@@ -198,3 +198,22 @@ export async function markPaymentEventProcessed(eventId) {
   await q('INSERT INTO payment_events (event_id) VALUES ($1) ON CONFLICT (event_id) DO NOTHING', [String(eventId)])
   return true
 }
+
+// ----- Admin (read-only) -----
+export async function listUsers() {
+  const { rows } = await q('SELECT id, email, role, created_at FROM users ORDER BY id')
+  return rows.map(r => ({ id: r.id, email: r.email, role: r.role, createdAt: new Date(r.created_at).getTime() }))
+}
+
+export async function getAdminMetrics() {
+  const u = await q('SELECT COUNT(*)::int AS c FROM users')
+  const r = await q('SELECT COUNT(*)::int AS c FROM restaurants')
+  const o = await q('SELECT COUNT(*)::int AS c FROM orders')
+  const rev = await q('SELECT COALESCE(SUM(amount_cents),0)::bigint AS s FROM payment_receipts')
+  return {
+    usersTotal: Number(u.rows[0].c || 0),
+    restaurantsTotal: Number(r.rows[0].c || 0),
+    ordersTotal: Number(o.rows[0].c || 0),
+    revenueCents: Number(rev.rows[0].s || 0)
+  }
+}
