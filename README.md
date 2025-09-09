@@ -110,7 +110,9 @@ To apply migrations to a local PostgreSQL instance:
 
 Notes:
 - Current runtime uses an in-memory driver by default (`DB_DRIVER=memory`).
-- Switch drivers later by updating the adapter config when a DB is provisioned.
+- To use Postgres (local or Supabase), set `DB_DRIVER=pg` and configure both `DATABASE_URL` (pooled) and `DIRECT_URL` (primary for migrations). Ensure passwords are URL-encoded and `sslmode=require` is present.
+
+See the detailed runbook: `docs/runbook/database.md`.
 
 ### Postgres/Supabase runbook (local + CI)
 
