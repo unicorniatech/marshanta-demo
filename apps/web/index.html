@@ -48,6 +48,28 @@
         <button id="installBtn" hidden>Install App</button>
       </section>
 
+      <section class="card" id="deliverySection" style="display:none">
+        <h3>Delivery</h3>
+        <p class="muted">This section is visible only when logged in as <code>delivery</code>.</p>
+        <div class="row" style="align-items:center;gap:8px">
+          <button id="delRefreshBtn" title="Refresh my assignments">Refresh</button>
+          <label style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="delShareLocation" />
+            <span class="muted">Share live location</span>
+          </label>
+          <span class="badge" id="delBell" title="Unread partner notifications">0</span>
+        </div>
+        <div style="margin-top:12px">
+          <h4>My Assignments</h4>
+          <ul id="delAssignments"></ul>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Notifications</h4>
+          <ul id="delNotifications"></ul>
+        </div>
+        <p class="muted">Actions: Accept an assignment, then mark Picked Up and Delivered. Enable location sharing to send your position while on a job.</p>
+      </section>
+
       <section class="card">
         <h3>Welcome</h3>
         <div id="chat" class="chat"></div>

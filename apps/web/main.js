@@ -112,6 +112,22 @@ function updateRoleUI() {
       }
     }
 
+    // Delivery section visibility
+    const deliverySection = document.getElementById('deliverySection')
+    if (deliverySection) {
+      const isDelivery = currentRole === 'delivery'
+      deliverySection.style.display = isDelivery ? '' : 'none'
+      if (isDelivery) {
+        loadDeliveryAssignments().catch(()=>{})
+        startDeliverySse()
+      } else {
+        stopDeliverySse()
+        stopDeliveryLocation()
+        delUnread = 0
+        updateDeliveryBadge()
+      }
+    }
+
     const rcRestaurantEl = document.getElementById('rcRestaurant')
     const loadBtn = document.getElementById('rcLoadOrdersBtn')
     const rcHint = document.getElementById('rcHint')
@@ -467,11 +483,12 @@ function resetMap() {
 async function loadAdmin() {
   if (currentRole !== 'admin') return
   try {
-    const [m, u, r, o] = await Promise.all([
+    const [m, u, r, o, p] = await Promise.all([
       api('/admin/metrics'),
       api('/admin/users'),
       api('/admin/restaurants'),
-      api('/admin/orders')
+      api('/admin/orders'),
+      loadAdminPartners()
     ])
     if (m.ok) renderAdminMetrics(m.data.metrics)
     if (u.ok) renderAdminUsers(u.data.users || [])
@@ -527,8 +544,61 @@ function renderAdminOrders(rows = []) {
     li.textContent = `#${o.id} — R${o.restaurantId} `
     li.appendChild(st)
     li.appendChild(pb)
+    // Assign to partner controls
+    const ctrl = document.createElement('div')
+    ctrl.className = 'row'
+    const sel = document.createElement('select')
+    const partners = (window.__adminPartners || [])
+    partners.forEach(p => {
+      const opt = document.createElement('option')
+      opt.value = p.id
+      opt.textContent = p.name ? `#${p.id} — ${p.name}` : `#${p.id}`
+      sel.appendChild(opt)
+    })
+    const btn = document.createElement('button')
+    btn.textContent = 'Assign'
+    btn.title = 'Assign this order to the selected delivery partner'
+    btn.addEventListener('click', async () => {
+      if (!sel.value) { say('Select a partner first'); return }
+      btn.disabled = true
+      try {
+        const r = await assignOrderToPartner(o.id, Number(sel.value))
+        if (r) say(`Assigned order #${o.id} to partner #${sel.value}`)
+      } finally {
+        btn.disabled = false
+      }
+    })
+    ctrl.appendChild(sel)
+    ctrl.appendChild(btn)
+    li.appendChild(ctrl)
     list.appendChild(li)
   })
+}
+
+async function loadAdminPartners() {
+  try {
+    const r = await api('/admin/delivery-partners')
+    if (r.ok) {
+      window.__adminPartners = r.data.partners || []
+    } else {
+      window.__adminPartners = []
+    }
+    return window.__adminPartners
+  } catch (_) {
+    window.__adminPartners = []
+    return []
+  }
+}
+
+async function assignOrderToPartner(orderId, partnerId) {
+  try {
+    const r = await api('/admin/assignments', { method: 'POST', body: { orderId, partnerId } })
+    if (!r.ok) { say(`Failed to assign: ${r.status}`); return false }
+    return true
+  } catch (e) {
+    log(`assign error: ${e.message}`)
+    return false
+  }
 }
 
 // Admin notifications (SSE)
@@ -580,6 +650,135 @@ function stopAdminSse() {
   if (adminEs) { try { adminEs.close() } catch (_) {} adminEs = null }
 }
 
+// ---------- Delivery (partner) ----------
+let delEs = null
+let delUnread = 0
+let delLocTimer = null
+
+async function loadDeliveryAssignments() {
+  try {
+    const r = await api('/delivery/assignments')
+    if (!r.ok) return say(`Failed to load assignments: ${r.status}`)
+    renderDeliveryAssignments(r.data.assignments || [])
+  } catch (e) { log(`delivery load error: ${e.message}`) }
+}
+
+function renderDeliveryAssignments(rows = []) {
+  const list = document.getElementById('delAssignments')
+  if (!list) return
+  list.innerHTML = ''
+  rows.forEach(a => {
+    const li = document.createElement('li')
+    const title = document.createElement('div')
+    title.textContent = `Assignment #${a.id} — Order #${a.orderId} — ${a.status}`
+    li.appendChild(title)
+    const row = document.createElement('div')
+    row.className = 'row'
+    const accept = document.createElement('button')
+    accept.textContent = 'Accept'
+    accept.disabled = a.status !== 'Assigned'
+    accept.addEventListener('click', async () => {
+      accept.disabled = true
+      try { await acceptAssignment(a.id); await loadDeliveryAssignments() } finally { accept.disabled = false }
+    })
+    const picked = document.createElement('button')
+    picked.textContent = 'Picked Up'
+    picked.disabled = a.status !== 'Accepted'
+    picked.addEventListener('click', async () => {
+      picked.disabled = true
+      try { await updateAssignmentStatus(a.id, 'PickedUp'); await loadDeliveryAssignments() } finally { picked.disabled = false }
+    })
+    const delivered = document.createElement('button')
+    delivered.textContent = 'Delivered'
+    delivered.disabled = !(a.status === 'PickedUp')
+    delivered.addEventListener('click', async () => {
+      delivered.disabled = true
+      try { await updateAssignmentStatus(a.id, 'Delivered'); await loadDeliveryAssignments() } finally { delivered.disabled = false }
+    })
+    row.appendChild(accept)
+    row.appendChild(picked)
+    row.appendChild(delivered)
+    li.appendChild(row)
+    list.appendChild(li)
+  })
+}
+
+async function acceptAssignment(id) {
+  const r = await api(`/delivery/assignments/${encodeURIComponent(id)}/accept`, { method: 'POST' })
+  if (!r.ok) say(`Failed to accept: ${r.status}`)
+}
+
+async function updateAssignmentStatus(id, status) {
+  const r = await api(`/delivery/assignments/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status } })
+  if (!r.ok) say(`Failed to set status: ${r.status}`)
+}
+
+function updateDeliveryBadge() {
+  const b = document.getElementById('delBell')
+  if (b) b.textContent = String(delUnread)
+}
+
+function startDeliverySse() {
+  stopDeliverySse()
+  if (currentRole !== 'delivery') return
+  const token = localStorage.getItem(tokenKey)
+  if (!token) return
+  const url = `${apiBase}/delivery/events?token=${encodeURIComponent(token)}`
+  delEs = new EventSource(url)
+  delEs.onmessage = (ev) => {
+    try {
+      const evt = JSON.parse(ev.data)
+      delUnread += 1
+      updateDeliveryBadge()
+      const msg = evt.message || evt.type
+      say(`[DELIVERY] ${msg}`)
+      const list = document.getElementById('delNotifications')
+      if (list) {
+        const li = document.createElement('li')
+        li.textContent = `${new Date(evt.ts || Date.now()).toLocaleTimeString()} — ${evt.type}: ${msg}`
+        list.prepend(li)
+      }
+      if (evt.type === 'assignment_created') loadDeliveryAssignments().catch(()=>{})
+    } catch (_) {}
+  }
+  delEs.addEventListener('ping', () => {})
+  delEs.onerror = () => { setTimeout(() => startDeliverySse(), 3000) }
+}
+
+function stopDeliverySse() {
+  if (delEs) { try { delEs.close() } catch (_) {} delEs = null }
+}
+
+function stopDeliveryLocation() {
+  if (delLocTimer) { clearInterval(delLocTimer); delLocTimer = null }
+}
+
+function startDeliveryLocation() {
+  stopDeliveryLocation()
+  if (currentRole !== 'delivery') return
+  const checkbox = document.getElementById('delShareLocation')
+  if (!checkbox?.checked) return
+  const send = async (coords) => {
+    try {
+      const lat = Number(coords?.latitude ?? 18.936)
+      const lng = Number(coords?.longitude ?? -99.223)
+      await api('/delivery/location', { method: 'POST', body: { lat, lng } })
+    } catch (_) {}
+  }
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(p => send(p.coords), () => send(null), { enableHighAccuracy: true, maximumAge: 10000 })
+  } else {
+    send(null)
+  }
+  delLocTimer = setInterval(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(p => send(p.coords), () => send(null), { enableHighAccuracy: true, maximumAge: 10000 })
+    } else {
+      send(null)
+    }
+  }, 10000)
+}
+
 // ---------- UI wiring ----------
 els.loadRestaurantsBtn?.addEventListener('click', loadRestaurants)
 els.clearCartBtn?.addEventListener('click', () => { cart = []; renderCart() })
@@ -590,6 +789,8 @@ els.stopTrackingBtn?.addEventListener('click', stopTracking)
 els.chatSendBtn?.addEventListener('click', onChatSend)
 els.chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') onChatSend() })
 document.getElementById('admRefreshBtn')?.addEventListener('click', () => { loadAdmin().catch(()=>{}) })
+document.getElementById('delRefreshBtn')?.addEventListener('click', () => { loadDeliveryAssignments().catch(()=>{}) })
+document.getElementById('delShareLocation')?.addEventListener('change', () => { if (document.getElementById('delShareLocation').checked) startDeliveryLocation(); else stopDeliveryLocation() })
 
 function onChatSend() {
   const text = (els.chatInput?.value || '').trim()
@@ -837,6 +1038,10 @@ els.logoutBtn.addEventListener('click', async () => {
       stopAdminSse()
       adminUnread = 0
       updateAdminBadge()
+      stopDeliverySse()
+      stopDeliveryLocation()
+      delUnread = 0
+      updateDeliveryBadge()
       say('Logged out')
     } else {
       say(`Logout failed: ${r.status} ${r.data.error || ''}`)

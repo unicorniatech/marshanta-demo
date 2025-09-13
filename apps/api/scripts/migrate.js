@@ -28,14 +28,16 @@ async function main() {
   // Enable SSL for hosted Postgres providers like Supabase.
   // Parse URL explicitly to avoid conflicts between connectionString params and pg's ssl config.
   const u = new URL(url)
-  const client = new Client({
+  const cfg = {
     host: u.hostname,
     port: Number(u.port || 5432),
     database: u.pathname?.replace(/^\//, '') || 'postgres',
     user: decodeURIComponent(u.username || ''),
     password: decodeURIComponent(u.password || ''),
     ssl: { rejectUnauthorized: false, require: true }
-  })
+  }
+  console.log(`Connecting to ${cfg.host}:${cfg.port}/${cfg.database} as ${cfg.user} (ssl=${cfg.ssl?.require ? 'on' : 'off'})`)
+  const client = new Client(cfg)
   await client.connect()
 
   try {
@@ -52,6 +54,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error('Migration failed:', err.message)
+  console.error('Migration failed:', err && (err.stack || err.message || String(err)))
   process.exit(1)
 })

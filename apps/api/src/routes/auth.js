@@ -16,7 +16,12 @@ authRouter.post('/register', async (req, res) => {
     const user = await createUser({ email, passwordHash, role: safeRole })
     return res.status(201).json({ id: user.id, email: user.email })
   } catch (e) {
-    if (e && e.code === 'UNIQUE_VIOLATION') return res.status(409).json({ error: 'Email already registered' })
+    // Memory driver sets e.code = 'UNIQUE_VIOLATION'; Postgres uses SQLSTATE '23505'
+    if (e && (e.code === 'UNIQUE_VIOLATION' || e.code === '23505')) {
+      return res.status(409).json({ error: 'Email already registered' })
+    }
+    // Minimal logging to help diagnostics without leaking sensitive info
+    console.error('Register error:', e && (e.stack || e.message || e))
     return res.status(500).json({ error: 'Registration failed' })
   }
 })

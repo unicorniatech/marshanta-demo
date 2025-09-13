@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authGuard, requireRole, decodeToken, isBlacklisted } from '../lib/auth.js'
-import { getAdminMetrics, listUsers, listRestaurants, listOrders } from '../db/adapter.js'
-import { onAdminEvent } from '../lib/events.js'
+import { getAdminMetrics, listUsers, listRestaurants, listOrders, createDeliveryAssignment, listDeliveryPartners, createDeliveryPartner, updateDeliveryPartner } from '../db/adapter.js'
+import { onAdminEvent, emitPartnerEvent, emitAdminEvent } from '../lib/events.js'
 
 export const adminRouter = Router()
 
@@ -38,6 +38,55 @@ adminRouter.get('/orders', authGuard, requireRole(['admin']), async (req, res) =
     res.json({ orders })
   } catch (e) {
     res.status(500).json({ error: 'Failed to load orders' })
+  }
+})
+
+// List delivery partners (for assignment UI)
+adminRouter.get('/delivery-partners', authGuard, requireRole(['admin']), async (req, res) => {
+  try {
+    const rows = await listDeliveryPartners()
+    res.json({ partners: rows })
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load partners' })
+  }
+})
+
+// Create delivery partner
+adminRouter.post('/delivery-partners', authGuard, requireRole(['admin']), async (req, res) => {
+  try {
+    const { name, phone, vehicleType } = req.body || {}
+    const p = await createDeliveryPartner({ name, phone, vehicleType })
+    res.status(201).json({ partner: p })
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Failed to create partner' })
+  }
+})
+
+// Update delivery partner
+adminRouter.patch('/delivery-partners/:id', authGuard, requireRole(['admin']), async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const { name, phone, vehicleType } = req.body || {}
+    const p = await updateDeliveryPartner(id, { name, phone, vehicleType })
+    if (!p) return res.status(404).json({ error: 'Not found' })
+    res.json({ partner: p })
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Failed to update partner' })
+  }
+})
+
+// Assign an order to a delivery partner
+adminRouter.post('/assignments', authGuard, requireRole(['admin']), async (req, res) => {
+  try {
+    const { orderId, partnerId } = req.body || {}
+    if (!orderId || !partnerId) return res.status(400).json({ error: 'orderId and partnerId required' })
+    const a = await createDeliveryAssignment({ orderId, partnerId })
+    // Notify specific partner and admins
+    try { emitPartnerEvent(partnerId, { type: 'assignment_created', orderId, message: `New assignment for order #${orderId}` }) } catch (_) {}
+    try { emitAdminEvent({ type: 'assignment_created', orderId, message: `Assigned order #${orderId} to partner #${partnerId}` }) } catch (_) {}
+    res.status(201).json({ assignment: a })
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Failed to assign' })
   }
 })
 

@@ -1,4 +1,17 @@
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+// Load env from monorepo root so starting via workspace doesn't depend on shell sourcing
+try {
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = path.dirname(__filename)
+  const rootEnvPath = path.resolve(__dirname, '../../.env')
+  dotenv.config({ path: rootEnvPath, override: true })
+  // Also load default .env in current cwd as fallback
+  dotenv.config({ override: true })
+} catch (_) {
+  // ignore if dotenv not available
+}
 import express from 'express'
 import morgan from 'morgan'
 import expressRateLimit from 'express-rate-limit'
@@ -10,6 +23,7 @@ import { ordersRouter } from './routes/orders.js'
 import { trackingRouter } from './routes/tracking.js'
 import { paymentsRouter } from './routes/payments.js'
 import { adminRouter } from './routes/admin.js'
+import { deliveryRouter } from './routes/delivery.js'
 import { authGuard } from './lib/auth.js'
 
 const app = express()
@@ -71,6 +85,9 @@ app.use('/payments', paymentsRouter)
 
 // Admin (read-only, requires admin role via router middleware)
 app.use('/admin', adminRouter)
+
+// Delivery partner endpoints
+app.use('/delivery', deliveryRouter)
 
 // Example protected route
 app.get('/me', authGuard, (req, res) => {

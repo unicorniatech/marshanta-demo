@@ -45,3 +45,13 @@ export const markPaymentEventProcessed = driver.markPaymentEventProcessed
 // Admin (read-only)
 export const listUsers = driver.listUsers
 export const getAdminMetrics = driver.getAdminMetrics
+
+// Delivery (assignments and locations)
+export const createDeliveryAssignment = driver.createDeliveryAssignment
+export const listAssignmentsForPartner = driver.listAssignmentsForPartner
+export const setAssignmentStatus = driver.setAssignmentStatus
+export const saveDeliveryLocation = driver.saveDeliveryLocation
+export const getLatestLocationForOrder = driver.getLatestLocationForOrder
+
+// Delivery partners (admin management)
+export const updateDeliveryPartner = driver.updateDeliveryPartner
