@@ -43,6 +43,17 @@
     </header>
     <main>
       <section class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div class="muted">Quick Nav</div>
+          <div class="row">
+            <button id="navClient">Client</button>
+            <button id="navDelivery">Delivery</button>
+            <button id="navRestaurant">Restaurant</button>
+            <button id="navAdmin">Admin</button>
+          </div>
+        </div>
+      </section>
+      <section class="card">
         <h3>Install</h3>
         <p class="muted">Add to home screen for a better experience.</p>
         <button id="installBtn" hidden>Install App</button>
@@ -70,6 +81,7 @@
         <p class="muted">Actions: Accept an assignment, then mark Picked Up and Delivered. Enable location sharing to send your position while on a job.</p>
       </section>
 
+      <section id="clientSection">
       <section class="card">
         <h3>Welcome</h3>
         <div id="chat" class="chat"></div>
@@ -186,6 +198,16 @@
         <div style="margin-top:12px">
           <h4>Orders</h4>
           <ul id="admOrdersList"></ul>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h4>Delivery Partners (In‑house Pool)</h4>
+          <div class="row">
+            <input id="admNewPartnerName" placeholder="Name" />
+            <input id="admNewPartnerPhone" placeholder="Phone" />
+            <input id="admNewPartnerVehicle" placeholder="Vehicle Type" />
+            <button id="admCreatePartnerBtn">Create Partner</button>
+          </div>
+          <p class="muted">Create individual drivers for the in‑house delivery pool. They will appear in the Assign dropdown above.</p>
         </div>
         <div style="margin-top:12px">
           <h4>Notifications</h4>

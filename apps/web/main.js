@@ -9,6 +9,10 @@ const els = {
   chat: document.getElementById('chat'),
   chatInput: document.getElementById('chatInput'),
   chatSendBtn: document.getElementById('chatSendBtn'),
+  navClient: document.getElementById('navClient'),
+  navDelivery: document.getElementById('navDelivery'),
+  navRestaurant: document.getElementById('navRestaurant'),
+  navAdmin: document.getElementById('navAdmin'),
   email: document.getElementById('email'),
   password: document.getElementById('password'),
   role: document.getElementById('role'),
@@ -18,6 +22,7 @@ const els = {
   log: document.getElementById('log'),
   apiBase: document.getElementById('apiBase'),
   roleBadge: document.getElementById('roleBadge'),
+  clientSection: document.getElementById('clientSection'),
   loadRestaurantsBtn: document.getElementById('loadRestaurantsBtn'),
   restaurantsList: document.getElementById('restaurantsList'),
   menuHeader: document.getElementById('menuHeader'),
@@ -32,7 +37,11 @@ const els = {
   trackingOrder: document.getElementById('trackingOrder'),
   trackingStatus: document.getElementById('trackingStatus'),
   trackingCoords: document.getElementById('trackingCoords'),
-  stopTrackingBtn: document.getElementById('stopTrackingBtn')
+  stopTrackingBtn: document.getElementById('stopTrackingBtn'),
+  admCreatePartnerBtn: document.getElementById('admCreatePartnerBtn'),
+  admNewPartnerName: document.getElementById('admNewPartnerName'),
+  admNewPartnerPhone: document.getElementById('admNewPartnerPhone'),
+  admNewPartnerVehicle: document.getElementById('admNewPartnerVehicle')
 }
 
 // ---------- Payments (Story 2.4) ----------
@@ -83,6 +92,21 @@ function say(msg) {
   els.chat.appendChild(p)
 }
 
+function scrollToEl(el) {
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  try {
+    const old = el.style.outline
+    el.style.outline = '2px solid #0ea5e9'
+    setTimeout(() => { el.style.outline = old || '' }, 800)
+  } catch (_) {}
+}
+
+function setVisible(el, show) {
+  if (!el) return
+  el.style.display = show ? '' : 'none'
+}
+
 // ---------- Story 2.2 state ----------
 let selectedRestaurant = null
 let cart = [] // [{ restaurantId, itemId, name, priceCents, qty }]
@@ -126,6 +150,13 @@ function updateRoleUI() {
         delUnread = 0
         updateDeliveryBadge()
       }
+    }
+
+    // Client section visibility (default for client/staff)
+    const clientSection = els.clientSection
+    if (clientSection) {
+      const showClient = currentRole === 'client' || isStaff() || !currentRole
+      setVisible(clientSection, showClient)
     }
 
     const rcRestaurantEl = document.getElementById('rcRestaurant')
@@ -791,6 +822,27 @@ els.chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') onCha
 document.getElementById('admRefreshBtn')?.addEventListener('click', () => { loadAdmin().catch(()=>{}) })
 document.getElementById('delRefreshBtn')?.addEventListener('click', () => { loadDeliveryAssignments().catch(()=>{}) })
 document.getElementById('delShareLocation')?.addEventListener('change', () => { if (document.getElementById('delShareLocation').checked) startDeliveryLocation(); else stopDeliveryLocation() })
+
+// Quick Nav handlers
+els.navClient?.addEventListener('click', () => { setVisible(els.clientSection, true); setVisible(document.getElementById('deliverySection'), false); setVisible(document.getElementById('adminSection'), false); scrollToEl(els.clientSection) })
+els.navDelivery?.addEventListener('click', () => { setVisible(els.clientSection, false); setVisible(document.getElementById('deliverySection'), true); setVisible(document.getElementById('adminSection'), false); scrollToEl(document.getElementById('deliverySection')) })
+els.navRestaurant?.addEventListener('click', () => { setVisible(els.clientSection, true); scrollToEl(document.getElementById('rcOrdersList')) })
+els.navAdmin?.addEventListener('click', () => { setVisible(els.clientSection, false); setVisible(document.getElementById('deliverySection'), false); setVisible(document.getElementById('adminSection'), true); scrollToEl(document.getElementById('adminSection')) })
+
+// Admin: create delivery partner
+els.admCreatePartnerBtn?.addEventListener('click', async () => {
+  const name = (els.admNewPartnerName?.value || '').trim()
+  const phone = (els.admNewPartnerPhone?.value || '').trim()
+  const vehicleType = (els.admNewPartnerVehicle?.value || '').trim()
+  if (!name) { say('Name is required'); return }
+  try {
+    const r = await api('/admin/delivery-partners', { method: 'POST', body: { name, phone, vehicleType } })
+    if (!r.ok) { say(`Failed to create partner: ${r.status}`); return }
+    say(`Created partner #${r.data.partner?.id || ''} ${r.data.partner?.name || name}`)
+    await loadAdminPartners()
+    await loadAdmin()
+  } catch (e) { log(`partner create error: ${e.message}`) }
+})
 
 function onChatSend() {
   const text = (els.chatInput?.value || '').trim()
