@@ -6,8 +6,8 @@ Greenfield project using BMAD method. See sprint plans and stories for scope and
 
 ## Structure
 
-- `apps/web/` — PWA frontend (placeholder)
-- `apps/api/` — Serverless/API (placeholder)
+- `apps/web/` — PWA frontend (Vite dev/build)
+- `apps/api/` — Express API (Postgres adapter)
 - `packages/shared/` — Shared types/utilities
 - `docs/` — PRD, architecture, specs, stories, sprints
 
@@ -30,15 +30,15 @@ Configured in root `package.json`:
    - `npm install`
 4. Verify structure per `docs/stories/1.1.project-scaffolding.md` Testing steps.
 
-## Sprint 1 Quickstart
+## Dev Quickstart (Web + API)
 
 Run API and Web in separate terminals:
 
 ```bash
-# API
+# API (loads root .env automatically)
 npm run -w @marshanta/api dev
 
-# Web (static dev server)
+# Web (Vite dev server)
 npm run -w @marshanta/web dev
 ```
 
@@ -70,6 +70,31 @@ Core flows (Sprint 1):
 - `POST /payments/intent` — mock intent for an order
 - `POST /payments/confirm` — mock confirmation; updates `paymentStatus`
 - `POST /payments/webhook` — mock webhook with `x-mock-signature`
+
+## Build (Web)
+
+```bash
+# Build web app to apps/web/dist
+npm run -w @marshanta/web build
+
+# Preview locally on port 5173
+npm run -w @marshanta/web preview
+```
+
+## Mobile (Option A: Capacitor wrapper)
+
+We ship iOS/Android by wrapping the built web app with Capacitor.
+
+Steps (overview):
+1. Build web: `npm run -w @marshanta/web build` (outputs to `apps/web/dist`).
+2. Scaffold `apps/mobile/` Capacitor project (to be added): set `webDir` to `../web/dist`.
+3. Add platforms: `npx cap add ios`, `npx cap add android`.
+4. Copy web to native: `npx cap copy`.
+5. Open native IDEs: `npx cap open ios`, `npx cap open android`.
+6. Configure icons/splash and permissions (location for delivery partner sharing).
+7. Build and distribute via TestFlight / Play Console Internal.
+
+Note: A detailed mobile setup guide will live in `apps/mobile/README.md` once scaffolded.
 
 ## CI
 
@@ -109,8 +134,8 @@ To apply migrations to a local PostgreSQL instance:
    - `npm run -w @marshanta/api db:migrate`
 
 Notes:
-- Current runtime uses an in-memory driver by default (`DB_DRIVER=memory`).
-- To use Postgres (local or Supabase), set `DB_DRIVER=pg` and configure both `DATABASE_URL` (pooled) and `DIRECT_URL` (primary for migrations). Ensure passwords are URL-encoded and `sslmode=require` is present.
+- Runtime driver is selected by env (`DB_DRIVER=pg` recommended). The API loads `/.env` automatically on startup.
+- For Supabase: set pooled `DATABASE_URL` and primary `DIRECT_URL`. Passwords must be URL-encoded; include `sslmode=require`.
 
 See the detailed runbook: `docs/runbook/database.md`.
 
@@ -140,3 +165,10 @@ See the detailed runbook: `docs/runbook/database.md`.
 
 - Keep technology choices consistent with `docs/architecture/`.
 - No secrets committed; use `.env`.
+
+## Status & Plan (Single Source of Truth)
+
+See `docs/STATUS.md` for:
+- Current state (what works vs mock)
+- Next actions (Option A mobile, tests/CI)
+- Longer-term plan (Option B React Native)

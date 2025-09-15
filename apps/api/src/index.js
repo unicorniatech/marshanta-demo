@@ -44,12 +44,17 @@ app.use(
     origin: (origin, cb) => {
       if (!origin) return cb(null, true) // curl or same-origin
       if (process.env.NODE_ENV !== 'production') {
-        // Allow any localhost/127.0.0.1 port in dev
-        const ok = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) || devOrigins.includes(origin)
+        // Allow any localhost/127.0.0.1 port in dev and Capacitor WebView scheme
+        const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) || devOrigins.includes(origin)
+        const isCapacitor = /^capacitor:\/\//.test(origin)
+        const ok = isLocalhost || isCapacitor
         return cb(ok ? null : new Error('Not allowed by CORS'), ok)
       }
       return cb(new Error('Not allowed by CORS'), false)
     },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204,
     credentials: false
   })
 )
