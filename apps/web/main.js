@@ -39,6 +39,7 @@ const els = {
   trackingCoords: document.getElementById('trackingCoords'),
   stopTrackingBtn: document.getElementById('stopTrackingBtn'),
   admCreatePartnerBtn: document.getElementById('admCreatePartnerBtn'),
+  admNewPartnerEmail: document.getElementById('admNewPartnerEmail'),
   admNewPartnerName: document.getElementById('admNewPartnerName'),
   admNewPartnerPhone: document.getElementById('admNewPartnerPhone'),
   admNewPartnerVehicle: document.getElementById('admNewPartnerVehicle')
@@ -157,6 +158,12 @@ function updateRoleUI() {
     if (clientSection) {
       const showClient = currentRole === 'client' || isStaff() || !currentRole
       setVisible(clientSection, showClient)
+    }
+
+    // Restaurant Console section visibility (staff/admin only)
+    const rcSection = document.getElementById('rcSection')
+    if (rcSection) {
+      setVisible(rcSection, isStaff())
     }
 
     const rcRestaurantEl = document.getElementById('rcRestaurant')
@@ -548,7 +555,29 @@ function renderAdminUsers(rows = []) {
   list.innerHTML = ''
   rows.forEach(x => {
     const li = document.createElement('li')
-    li.textContent = `#${x.id} — ${x.email} (${x.role})`
+    const span = document.createElement('span')
+    span.textContent = `#${x.id} — ${x.email} (role: ${x.role}) `
+    li.appendChild(span)
+    const sel = document.createElement('select')
+    ;['client','delivery','staff'].forEach(r => {
+      const opt = document.createElement('option')
+      opt.value = r
+      opt.textContent = r
+      if (x.role === r) opt.selected = true
+      sel.appendChild(opt)
+    })
+    const btn = document.createElement('button')
+    btn.textContent = 'Set Role'
+    btn.addEventListener('click', async () => {
+      btn.disabled = true
+      try {
+        const r = await api(`/admin/users/${x.id}/role`, { method: 'PATCH', body: { role: sel.value } })
+        if (!r.ok) { say(`Failed to set role: ${r.status}`) }
+        await loadAdmin()
+      } finally { btn.disabled = false }
+    })
+    li.appendChild(sel)
+    li.appendChild(btn)
     list.appendChild(li)
   })
 }
@@ -685,12 +714,17 @@ function stopAdminSse() {
 let delEs = null
 let delUnread = 0
 let delLocTimer = null
+let currentDeliveryOrderId = null
 
 async function loadDeliveryAssignments() {
   try {
     const r = await api('/delivery/assignments')
     if (!r.ok) return say(`Failed to load assignments: ${r.status}`)
-    renderDeliveryAssignments(r.data.assignments || [])
+    const rows = r.data.assignments || []
+    // Prefer an order that is PickedUp, then Accepted, else none
+    const active = rows.find(a => a.status === 'PickedUp') || rows.find(a => a.status === 'Accepted') || null
+    currentDeliveryOrderId = active ? Number(active.orderId) : null
+    renderDeliveryAssignments(rows)
   } catch (e) { log(`delivery load error: ${e.message}`) }
 }
 
@@ -737,11 +771,24 @@ function renderDeliveryAssignments(rows = []) {
 async function acceptAssignment(id) {
   const r = await api(`/delivery/assignments/${encodeURIComponent(id)}/accept`, { method: 'POST' })
   if (!r.ok) say(`Failed to accept: ${r.status}`)
+  else {
+    // Set current tracking order to this assignment's orderId
+    try { currentDeliveryOrderId = Number(r.data.assignment?.orderId) || currentDeliveryOrderId } catch (_) {}
+  }
 }
 
 async function updateAssignmentStatus(id, status) {
   const r = await api(`/delivery/assignments/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status } })
   if (!r.ok) say(`Failed to set status: ${r.status}`)
+  else {
+    try {
+      const a = r.data.assignment
+      if (a) {
+        if (a.status === 'PickedUp') currentDeliveryOrderId = Number(a.orderId)
+        if (a.status === 'Delivered') currentDeliveryOrderId = null
+      }
+    } catch (_) {}
+  }
 }
 
 function updateDeliveryBadge() {
@@ -793,7 +840,8 @@ function startDeliveryLocation() {
     try {
       const lat = Number(coords?.latitude ?? 18.936)
       const lng = Number(coords?.longitude ?? -99.223)
-      await api('/delivery/location', { method: 'POST', body: { lat, lng } })
+      const orderId = currentDeliveryOrderId || null
+      await api('/delivery/location', { method: 'POST', body: { lat, lng, orderId } })
     } catch (_) {}
   }
   if (navigator.geolocation) {
@@ -831,12 +879,14 @@ els.navAdmin?.addEventListener('click', () => { setVisible(els.clientSection, fa
 
 // Admin: create delivery partner
 els.admCreatePartnerBtn?.addEventListener('click', async () => {
+  const userEmail = (els.admNewPartnerEmail?.value || '').trim()
   const name = (els.admNewPartnerName?.value || '').trim()
   const phone = (els.admNewPartnerPhone?.value || '').trim()
   const vehicleType = (els.admNewPartnerVehicle?.value || '').trim()
   if (!name) { say('Name is required'); return }
   try {
-    const r = await api('/admin/delivery-partners', { method: 'POST', body: { name, phone, vehicleType } })
+    const body = userEmail ? { userEmail, name, phone, vehicleType } : { name, phone, vehicleType }
+    const r = await api('/admin/delivery-partners', { method: 'POST', body })
     if (!r.ok) { say(`Failed to create partner: ${r.status}`); return }
     say(`Created partner #${r.data.partner?.id || ''} ${r.data.partner?.name || name}`)
     await loadAdminPartners()
@@ -1037,7 +1087,7 @@ els.registerBtn.addEventListener('click', async () => {
     // Basic validation
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Please enter a valid email.')
     if (!password || password.length < 6) return say('Password must be at least 6 characters.')
-    if (!['client','staff','admin'].includes(role)) return say('Invalid role selected.')
+    if (!['client','delivery','staff','admin'].includes(role)) return say('Invalid role selected.')
     const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
     if (r.ok) {
       const emailShown = r.data.email || email

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { authGuard, requireRole, decodeToken, isBlacklisted } from '../lib/auth.js'
-import { getAdminMetrics, listUsers, listRestaurants, listOrders, createDeliveryAssignment, listDeliveryPartners, createDeliveryPartner, updateDeliveryPartner } from '../db/adapter.js'
+import { getAdminMetrics, listUsers, listRestaurants, listOrders, createDeliveryAssignment, listDeliveryPartners, createDeliveryPartner, updateDeliveryPartner, updateUserRole } from '../db/adapter.js'
 import { onAdminEvent, emitPartnerEvent, emitAdminEvent } from '../lib/events.js'
 
 export const adminRouter = Router()
@@ -20,6 +20,19 @@ adminRouter.get('/users', authGuard, requireRole(['admin']), async (req, res) =>
     res.json({ users })
   } catch (e) {
     res.status(500).json({ error: 'Failed to load users' })
+  }
+})
+
+// Update a user's role (no admin self-demotion/promotion here; intended for changing client<->delivery<->staff)
+adminRouter.patch('/users/:id/role', authGuard, requireRole(['admin']), async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const { role } = req.body || {}
+    const updated = await updateUserRole(id, String(role))
+    res.json({ user: updated })
+  } catch (e) {
+    const code = e && e.code === 'INVALID_ROLE' ? 400 : (String(e.message||'').includes('Not found') ? 404 : 400)
+    res.status(code).json({ error: e.message || 'Failed to update role' })
   }
 })
 
@@ -54,8 +67,8 @@ adminRouter.get('/delivery-partners', authGuard, requireRole(['admin']), async (
 // Create delivery partner
 adminRouter.post('/delivery-partners', authGuard, requireRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, vehicleType } = req.body || {}
-    const p = await createDeliveryPartner({ name, phone, vehicleType })
+    const { name, phone, vehicleType, userEmail } = req.body || {}
+    const p = await createDeliveryPartner({ name, phone, vehicleType, userEmail })
     res.status(201).json({ partner: p })
   } catch (e) {
     res.status(400).json({ error: e.message || 'Failed to create partner' })

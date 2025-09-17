@@ -94,6 +94,7 @@
           <input id="password" type="password" placeholder="password" />
           <select id="role">
             <option value="client" selected>client</option>
+            <option value="delivery">delivery</option>
             <option value="staff">staff</option>
             <option value="admin">admin</option>
           </select>
@@ -135,7 +136,7 @@
         <ul id="ordersList"></ul>
       </section>
 
-      <section class="card">
+      <section class="card" id="rcSection">
         <h3>Restaurant Console</h3>
         <div class="row">
           <select id="rcRestaurant"></select>
@@ -202,6 +203,7 @@
         <div class="card" style="margin-top:12px">
           <h4>Delivery Partners (In‑house Pool)</h4>
           <div class="row">
+            <input id="admNewPartnerEmail" placeholder="User Email (delivery account)" />
             <input id="admNewPartnerName" placeholder="Name" />
             <input id="admNewPartnerPhone" placeholder="Phone" />
             <input id="admNewPartnerVehicle" placeholder="Vehicle Type" />

@@ -7,7 +7,12 @@ export default defineConfig({
   base: './',
   server: {
     port: 5173,
-    host: true
+    host: true,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173
+    }
   },
   build: {
     outDir: 'dist',

@@ -12,7 +12,13 @@ const users = [] // { id, email, passwordHash, name, phone, role }
 export async function createDeliveryAssignment({ orderId, partnerId }) {
   const id = assignments.length + 1
   const now = Date.now()
-  const a = { id, orderId: Number(orderId), partnerId: Number(partnerId), status: 'Assigned', createdAt: now, updatedAt: now }
+  // Resolve delivery partner id to the linked delivery user id if needed
+  let targetPartnerUserId = Number(partnerId)
+  const dp = deliveryPartners.find(p => p.id === Number(partnerId))
+  if (dp && typeof dp.userId === 'number') {
+    targetPartnerUserId = Number(dp.userId)
+  }
+  const a = { id, orderId: Number(orderId), partnerId: targetPartnerUserId, status: 'Assigned', createdAt: now, updatedAt: now }
   assignments.push(a)
   return { ...a }
 }
@@ -44,7 +50,7 @@ export async function getLatestLocationForOrder(orderId) {
 }
 const restaurants = [] // { id, name, address, phone }
 const menus = new Map() // restaurantId -> [{ id, name, priceCents }]
-const deliveryPartners = [] // { id, name, phone, vehicleType }
+const deliveryPartners = [] // { id, name, phone, vehicleType, userId }
 const orders = [] // { id, restaurantId, items: [{ itemId, name, priceCents, qty }], status, paymentStatus, createdAt }
 const paymentReceipts = [] // { id, orderId, provider, amountCents, currency, raw }
 const processedPaymentEvents = new Set() // eventId strings
@@ -62,6 +68,20 @@ export async function createUser({ email, passwordHash, name, phone, role = 'cli
 export async function findUserByEmail(email) {
   const u = users.find(u => u.email.toLowerCase() === String(email).toLowerCase())
   return u ? { ...u } : null
+}
+
+// Update a user's role (admin route). Allowed: client, delivery, staff
+export async function updateUserRole(id, role) {
+  const allowed = ['client', 'delivery', 'staff']
+  if (!allowed.includes(String(role))) {
+    const err = new Error('Invalid role')
+    err.code = 'INVALID_ROLE'
+    throw err
+  }
+  const u = users.find(u => u.id === Number(id))
+  if (!u) throw new Error('Not found')
+  u.role = String(role)
+  return { id: u.id, email: u.email, role: u.role }
 }
 
 export async function createRestaurant({ name, address, phone }) {
@@ -85,8 +105,15 @@ export async function listMenuItems(restaurantId) {
   return items.map(it => ({ ...it }))
 }
 
-export async function createDeliveryPartner({ name, phone, vehicleType }) {
-  const d = { id: deliveryPartnerId++, name, phone, vehicleType }
+export async function createDeliveryPartner({ name, phone, vehicleType, userEmail }) {
+  let userIdLinked = undefined
+  if (userEmail) {
+    const u = users.find(u => u.email.toLowerCase() === String(userEmail).toLowerCase())
+    if (u && (u.role === 'delivery' || u.role === 'admin' || u.role === 'staff')) {
+      userIdLinked = u.id
+    }
+  }
+  const d = { id: deliveryPartnerId++, name, phone, vehicleType, userId: userIdLinked }
   deliveryPartners.push(d)
   return { ...d }
 }

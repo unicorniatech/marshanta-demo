@@ -19,6 +19,7 @@ const driver = selectDriver()
 // User API
 export const createUser = driver.createUser
 export const findUserByEmail = driver.findUserByEmail
+export const updateUserRole = driver.updateUserRole
 
 // Restaurant API
 export const createRestaurant = driver.createRestaurant
