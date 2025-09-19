@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Marshanta</title>
+    <link rel="manifest" href="./assets/manifest-eWtPzzzD.webmanifest" />
+    <meta name="theme-color" content="#0ea5e9" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      :root { --bg:#0b1220; --card:#0f172a; --fg:#e2e8f0; --muted:#93c5fd; }
+      * { box-sizing: border-box; }
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background: var(--bg); color: var(--fg); }
+      header { padding: 16px 20px; background: #0ea5e9; color:#081018; font-weight: 700; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#081018; color:#0ea5e9; border:1px solid #0284c7; }
+      .status { margin-left:8px; }
+      .status-Submitted { background:#0b1220; color:#93c5fd; border-color:#334155; }
+      .status-Accepted { background:#0b1220; color:#a3e635; border-color:#3f6212; }
+      .status-Preparing { background:#0b1220; color:#f59e0b; border-color:#92400e; }
+      .status-ReadyForPickup { background:#0b1220; color:#f472b6; border-color:#831843; }
+      .pay-Unpaid, .pay-Failed { background:#0b1220; color:#f87171; border-color:#7f1d1d; }
+      .pay-Paid, .pay-Succeeded { background:#0b1220; color:#34d399; border-color:#065f46; }
+      main { max-width: 800px; margin: 24px auto; padding: 0 16px; }
+      .card { background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+      button { background:#0ea5e9; color:#081018; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
+      input { padding:10px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--fg); }
+      .row { display:flex; gap:8px; flex-wrap:wrap; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .chat { min-height: 140px; }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
+      #map { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid #1f2937; }
+    </style>
+    <script type="module" crossorigin src="./assets/index-CopD4eI1.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>Marshanta — PWA Onboarding (Sprint 1)</div>
+      <div class="badge" id="roleBadge">role: guest</div>
+    </header>
+    <main>
+      <section class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div class="muted">Quick Nav</div>
+          <div class="row">
+            <button id="navClient">Client</button>
+            <button id="navDelivery">Delivery</button>
+            <button id="navRestaurant">Restaurant</button>
+            <button id="navAdmin">Admin</button>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <h3>Install</h3>
+        <p class="muted">Add to home screen for a better experience.</p>
+        <button id="installBtn" hidden>Install App</button>
+      </section>
+
+      <section class="card" id="deliverySection" style="display:none">
+        <h3>Delivery</h3>
+        <p class="muted">This section is visible only when logged in as <code>delivery</code>.</p>
+        <div class="row" style="align-items:center;gap:8px">
+          <button id="delRefreshBtn" title="Refresh my assignments">Refresh</button>
+          <label style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="delShareLocation" />
+            <span class="muted">Share live location</span>
+          </label>
+          <span class="badge" id="delBell" title="Unread partner notifications">0</span>
+        </div>
+        <div style="margin-top:12px">
+          <h4>My Assignments</h4>
+          <ul id="delAssignments"></ul>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Notifications</h4>
+          <ul id="delNotifications"></ul>
+        </div>
+        <p class="muted">Actions: Accept an assignment, then mark Picked Up and Delivered. Enable location sharing to send your position while on a job.</p>
+      </section>
+
+      <section id="clientSection">
+      <section class="card">
+        <h3>Welcome</h3>
+        <div id="chat" class="chat"></div>
+        <div class="row">
+          <input id="chatInput" type="text" placeholder="Type a command (e.g., 'show restaurants', 'menu taco place', 'add 2 tacos')" style="flex:1; min-width:240px" />
+          <button id="chatSendBtn">Send</button>
+        </div>
+        <div class="row">
+          <input id="email" type="email" placeholder="email" />
+          <input id="password" type="password" placeholder="password" />
+          <select id="role">
+            <option value="client" selected>client</option>
+            <option value="delivery">delivery</option>
+            <option value="staff">staff</option>
+            <option value="admin">admin</option>
+          </select>
+          <button id="registerBtn">Register</button>
+          <button id="loginBtn">Login</button>
+          <button id="logoutBtn">Logout</button>
+        </div>
+        <p class="muted">API Base: <code id="apiBase"></code></p>
+      </section>
+
+      <section class="card">
+        <h3>Restaurants</h3>
+        <div class="row">
+          <button id="loadRestaurantsBtn">Show Restaurants</button>
+        </div>
+        <ul id="restaurantsList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Menu</h3>
+        <p class="muted" id="menuHeader">No restaurant selected.</p>
+        <ul id="menuList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Cart</h3>
+        <ul id="cartList"></ul>
+        <p><strong>Total:</strong> <span id="cartTotal">$0.00</span></p>
+        <div class="row">
+          <button id="clearCartBtn">Clear Cart</button>
+          <button id="reviewOrderBtn">Review Order</button>
+          <button id="placeOrderBtn">Place Order</button>
+          <button id="refreshOrdersBtn">Refresh Orders</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Orders</h3>
+        <ul id="ordersList"></ul>
+      </section>
+
+      <section class="card" id="rcSection">
+        <h3>Restaurant Console</h3>
+        <div class="row">
+          <select id="rcRestaurant"></select>
+          <button id="rcLoadOrdersBtn">Load Orders</button>
+        </div>
+        <div class="row">
+          <label>
+            <span class="muted">Status:</span>
+            <select id="rcStatusFilter">
+              <option value="all" selected>all</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Preparing">Preparing</option>
+              <option value="ReadyForPickup">ReadyForPickup</option>
+            </select>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="rcAutoRefresh" />
+            <span class="muted">Auto-refresh</span>
+          </label>
+        </div>
+        <p id="rcHint" class="muted" style="display:none">Restaurant Console is available to staff or admin only.</p>
+        <ul id="rcOrdersList"></ul>
+      </section>
+
+      <section class="card">
+        <h3>Tracking</h3>
+        <p class="muted">Active Order: <span id="trackingOrder">—</span></p>
+        <div id="trackingStatus">Not tracking.</div>
+        <div id="trackingCoords" class="muted"></div>
+        <div id="map"></div>
+        <div class="row">
+          <button id="stopTrackingBtn">Stop Tracking</button>
+        </div>
+      </section>
+
+      <section class="card" id="adminSection" style="display:none">
+        <h3>Admin Dashboard</h3>
+        <p class="muted">Desktop-focused admin view. Visible only to users with role <code>admin</code>.</p>
+        <div class="row" style="gap:12px; align-items:center">
+          <div class="badge" title="Total users"><span id="admUsers">0</span> users</div>
+          <div class="badge" title="Total restaurants"><span id="admRestaurants">0</span> restaurants</div>
+          <div class="badge" title="Total orders"><span id="admOrders">0</span> orders</div>
+          <div class="badge" title="Total revenue"><span id="admRevenue">$0.00</span> revenue</div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+            <span class="badge" id="admBell" title="Unread notifications">0</span>
+            <button id="admRefreshBtn" title="Refresh admin data">Refresh</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div style="flex:1; min-width:280px">
+            <h4>Users</h4>
+            <ul id="admUsersList"></ul>
+          </div>
+          <div style="flex:1; min-width:280px">
+            <h4>Restaurants</h4>
+            <ul id="admRestaurantsList"></ul>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Orders</h4>
+          <ul id="admOrdersList"></ul>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h4>Delivery Partners (In‑house Pool)</h4>
+          <div class="row">
+            <input id="admNewPartnerEmail" placeholder="User Email (delivery account)" />
+            <input id="admNewPartnerName" placeholder="Name" />
+            <input id="admNewPartnerPhone" placeholder="Phone" />
+            <input id="admNewPartnerVehicle" placeholder="Vehicle Type" />
+            <button id="admCreatePartnerBtn">Create Partner</button>
+          </div>
+          <p class="muted">Create individual drivers for the in‑house delivery pool. They will appear in the Assign dropdown above.</p>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Notifications</h4>
+          <ul id="admNotifications"></ul>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Debug</h3>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+  </body>
+</html>

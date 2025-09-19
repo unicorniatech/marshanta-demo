@@ -2,7 +2,10 @@
 // Uses env DATABASE_URL and implements the neutral adapter interface
 import { Pool } from 'pg'
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+})
 
 async function q(text, params = []) {
   const client = await pool.connect()
@@ -12,6 +15,41 @@ async function q(text, params = []) {
   } finally {
     client.release()
   }
+}
+
+// ----- Delivery (assignments & locations) -----
+export async function createDeliveryAssignment({ orderId, partnerId }) {
+  const { rows } = await q(
+    'INSERT INTO delivery_assignments (order_id, partner_id, status) VALUES ($1,$2,$3) RETURNING id, order_id, partner_id, status, created_at, updated_at',
+    [Number(orderId), Number(partnerId), 'Assigned']
+  )
+  const r = rows[0]
+  return { id: r.id, orderId: r.order_id, partnerId: r.partner_id, status: r.status, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() }
+}
+
+export async function listAssignmentsForPartner(partnerId) {
+  const { rows } = await q('SELECT id, order_id, partner_id, status, created_at, updated_at FROM delivery_assignments WHERE partner_id=$1 ORDER BY id DESC', [Number(partnerId)])
+  return rows.map(r => ({ id: r.id, orderId: r.order_id, partnerId: r.partner_id, status: r.status, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() }))
+}
+
+export async function setAssignmentStatus(id, status) {
+  const { rows } = await q('UPDATE delivery_assignments SET status=$2, updated_at=NOW() WHERE id=$1 RETURNING id, order_id, partner_id, status, created_at, updated_at', [Number(id), String(status)])
+  if (!rows.length) throw new Error('Not found')
+  const r = rows[0]
+  return { id: r.id, orderId: r.order_id, partnerId: r.partner_id, status: r.status, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() }
+}
+
+export async function saveDeliveryLocation({ partnerId, orderId, lat, lng, ts }) {
+  const { rows } = await q('INSERT INTO delivery_locations (partner_id, order_id, lat, lng, ts) VALUES ($1,$2,$3,$4,COALESCE($5, NOW())) RETURNING id, partner_id, order_id, lat, lng, ts', [Number(partnerId), orderId ? Number(orderId) : null, Number(lat), Number(lng), ts ? new Date(ts) : null])
+  const r = rows[0]
+  return { id: r.id, partnerId: r.partner_id, orderId: r.order_id, lat: Number(r.lat), lng: Number(r.lng), ts: new Date(r.ts).getTime() }
+}
+
+export async function getLatestLocationForOrder(orderId) {
+  const { rows } = await q('SELECT id, partner_id, order_id, lat, lng, ts FROM delivery_locations WHERE order_id=$1 ORDER BY ts DESC LIMIT 1', [Number(orderId)])
+  if (!rows.length) return null
+  const r = rows[0]
+  return { id: r.id, partnerId: r.partner_id, orderId: r.order_id, lat: Number(r.lat), lng: Number(r.lng), ts: new Date(r.ts).getTime() }
 }
 
 // Users
@@ -61,6 +99,16 @@ export async function createDeliveryPartner({ name, phone, vehicleType }) {
 export async function listDeliveryPartners() {
   const { rows } = await q('SELECT id, name, phone, vehicle_type FROM delivery_partners ORDER BY id')
   return rows.map(r => ({ id: r.id, name: r.name, phone: r.phone, vehicleType: r.vehicle_type }))
+}
+
+export async function updateDeliveryPartner(id, { name, phone, vehicleType }) {
+  const { rows } = await q(
+    'UPDATE delivery_partners SET name=COALESCE($2,name), phone=COALESCE($3,phone), vehicle_type=COALESCE($4,vehicle_type) WHERE id=$1 RETURNING id, name, phone, vehicle_type',
+    [Number(id), name ?? null, phone ?? null, vehicleType ?? null]
+  )
+  if (!rows.length) return null
+  const r = rows[0]
+  return { id: r.id, name: r.name, phone: r.phone, vehicleType: r.vehicle_type }
 }
 
 // Orders
@@ -179,5 +227,41 @@ export async function updateOrderPaymentStatus(id, paymentStatus) {
     status: o.status,
     paymentStatus: o.payment_status,
     createdAt: new Date(o.created_at).getTime()
+  }
+}
+
+// ---- Payments persistence (Story 2.4) ----
+export async function savePaymentReceipt({ orderId, provider, amountCents, currency, raw }) {
+  const { rows } = await q('INSERT INTO payment_receipts (order_id, provider, amount_cents, currency, raw) VALUES ($1,$2,$3,$4,$5) RETURNING id, order_id, provider, amount_cents, currency, raw, created_at', [orderId, provider, amountCents, currency || 'USD', raw ? JSON.stringify(raw) : null])
+  const r = rows[0]
+  return { id: r.id, orderId: r.order_id, provider: r.provider, amountCents: Number(r.amount_cents), currency: r.currency, raw: r.raw, createdAt: new Date(r.created_at).getTime() }
+}
+
+export async function hasProcessedPaymentEvent(eventId) {
+  const { rows } = await q('SELECT 1 FROM payment_events WHERE event_id=$1 LIMIT 1', [String(eventId)])
+  return rows.length > 0
+}
+
+export async function markPaymentEventProcessed(eventId) {
+  await q('INSERT INTO payment_events (event_id) VALUES ($1) ON CONFLICT (event_id) DO NOTHING', [String(eventId)])
+  return true
+}
+
+// ----- Admin (read-only) -----
+export async function listUsers() {
+  const { rows } = await q('SELECT id, email, role, created_at FROM users ORDER BY id')
+  return rows.map(r => ({ id: r.id, email: r.email, role: r.role, createdAt: new Date(r.created_at).getTime() }))
+}
+
+export async function getAdminMetrics() {
+  const u = await q('SELECT COUNT(*)::int AS c FROM users')
+  const r = await q('SELECT COUNT(*)::int AS c FROM restaurants')
+  const o = await q('SELECT COUNT(*)::int AS c FROM orders')
+  const rev = await q('SELECT COALESCE(SUM(amount_cents),0)::bigint AS s FROM payment_receipts')
+  return {
+    usersTotal: Number(u.rows[0].c || 0),
+    restaurantsTotal: Number(r.rows[0].c || 0),
+    ordersTotal: Number(o.rows[0].c || 0),
+    revenueCents: Number(rev.rows[0].s || 0)
   }
 }

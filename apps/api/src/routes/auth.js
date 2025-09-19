@@ -1,4 +1,5 @@
 import express from 'express'
+
 import { hashPassword, comparePassword, issueToken, decodeToken, blacklistToken } from '../lib/auth.js'
 import { createUser, findUserByEmail } from '../db/adapter.js'
 
@@ -10,12 +11,17 @@ authRouter.post('/register', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' })
     if (await findUserByEmail(email)) return res.status(409).json({ error: 'Email already registered' })
     const passwordHash = await hashPassword(password)
-    const allowedRoles = ['client', 'staff', 'admin']
+    const allowedRoles = ['client', 'delivery', 'staff', 'admin']
     const safeRole = allowedRoles.includes(role) ? role : 'client'
     const user = await createUser({ email, passwordHash, role: safeRole })
     return res.status(201).json({ id: user.id, email: user.email })
   } catch (e) {
-    if (e && e.code === 'UNIQUE_VIOLATION') return res.status(409).json({ error: 'Email already registered' })
+    // Memory driver sets e.code = 'UNIQUE_VIOLATION'; Postgres uses SQLSTATE '23505'
+    if (e && (e.code === 'UNIQUE_VIOLATION' || e.code === '23505')) {
+      return res.status(409).json({ error: 'Email already registered' })
+    }
+    // Minimal logging to help diagnostics without leaking sensitive info
+    console.error('Register error:', e && (e.stack || e.message || e))
     return res.status(500).json({ error: 'Registration failed' })
   }
 })

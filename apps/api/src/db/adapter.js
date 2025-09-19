@@ -19,6 +19,7 @@ const driver = selectDriver()
 // User API
 export const createUser = driver.createUser
 export const findUserByEmail = driver.findUserByEmail
+export const updateUserRole = driver.updateUserRole
 
 // Restaurant API
 export const createRestaurant = driver.createRestaurant
@@ -36,3 +37,22 @@ export const listOrders = driver.listOrders
 export const getOrderById = driver.getOrderById
 export const updateOrderStatus = driver.updateOrderStatus
 export const updateOrderPaymentStatus = driver.updateOrderPaymentStatus
+
+// Payments persistence (Story 2.4)
+export const savePaymentReceipt = driver.savePaymentReceipt
+export const hasProcessedPaymentEvent = driver.hasProcessedPaymentEvent
+export const markPaymentEventProcessed = driver.markPaymentEventProcessed
+
+// Admin (read-only)
+export const listUsers = driver.listUsers
+export const getAdminMetrics = driver.getAdminMetrics
+
+// Delivery (assignments and locations)
+export const createDeliveryAssignment = driver.createDeliveryAssignment
+export const listAssignmentsForPartner = driver.listAssignmentsForPartner
+export const setAssignmentStatus = driver.setAssignmentStatus
+export const saveDeliveryLocation = driver.saveDeliveryLocation
+export const getLatestLocationForOrder = driver.getLatestLocationForOrder
+
+// Delivery partners (admin management)
+export const updateDeliveryPartner = driver.updateDeliveryPartner

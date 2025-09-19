@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { Client } from 'pg'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -18,13 +19,25 @@ async function main() {
     return
   }
 
-  const url = process.env.DATABASE_URL
+  const url = process.env.DIRECT_URL || process.env.DATABASE_URL
   if (!url) {
-    console.error('DATABASE_URL not set. See .env.example')
+    console.error('DIRECT_URL/DATABASE_URL not set. See .env.example')
     process.exit(1)
   }
 
-  const client = new Client({ connectionString: url })
+  // Enable SSL for hosted Postgres providers like Supabase.
+  // Parse URL explicitly to avoid conflicts between connectionString params and pg's ssl config.
+  const u = new URL(url)
+  const cfg = {
+    host: u.hostname,
+    port: Number(u.port || 5432),
+    database: u.pathname?.replace(/^\//, '') || 'postgres',
+    user: decodeURIComponent(u.username || ''),
+    password: decodeURIComponent(u.password || ''),
+    ssl: { rejectUnauthorized: false, require: true }
+  }
+  console.log(`Connecting to ${cfg.host}:${cfg.port}/${cfg.database} as ${cfg.user} (ssl=${cfg.ssl?.require ? 'on' : 'off'})`)
+  const client = new Client(cfg)
   await client.connect()
 
   try {
@@ -41,6 +54,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error('Migration failed:', err.message)
+  console.error('Migration failed:', err && (err.stack || err.message || String(err)))
   process.exit(1)
 })

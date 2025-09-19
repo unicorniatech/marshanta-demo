@@ -1,0 +1,19 @@
+# App
+NODE_ENV=development
+PORT=4000
+PUBLIC_APP_NAME=Marshanta
+
+# Auth (keep secret)
+AUTH_SECRET=sb_secret_-RbqtwqPEz_IH3etYYcMpw_QTt2DFFE
+MOCK_WEBHOOK_SECRET=dev_secret
+
+# Database driver
+DB_DRIVER=pg
+
+# Runtime (pooled via PgBouncer) — use this for starting the API
+# Supabase pooled host, ssl required, PgBouncer enabled. Password is URL-encoded (@ -> %40)
+DATABASE_URL=postgresql://postgres:637WHb-kk%40FWVWS@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true
+
+# Migrations (direct, primary) — use this for running migrations
+# Supabase primary (direct) host, ssl required. Same URL-encoded password.
+DIRECT_URL=postgresql://postgres:637WHb-kk%40FWVWS@db.vpxegbatedeswlucpsou.supabase.co:5432/postgres?sslmode=require

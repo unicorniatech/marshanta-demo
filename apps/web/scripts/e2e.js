@@ -1,5 +1,6 @@
 // Minimal Playwright E2E: start static server and verify homepage
 import { spawn } from 'node:child_process'
+
 import { chromium } from 'playwright'
 
 const PORT = process.env.WEB_E2E_PORT ? Number(process.env.WEB_E2E_PORT) : 5175
