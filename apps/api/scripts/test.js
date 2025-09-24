@@ -39,6 +39,7 @@ import orders from '../tests/orders.test.js'
 import unauthorized from '../tests/unauthorized.test.js'
 import paymentsFailed from '../tests/payments_failed.test.js'
 import paymentsWebhook from '../tests/payments_webhook.test.js'
+import deliveryPartners from '../tests/delivery_partners_pg.test.js'
 
 register('health endpoint', health)
 register('restaurants and menus', restaurants)
@@ -46,5 +47,6 @@ register('orders flow with mocked payments', orders)
 register('unauthorized and client-forbidden transitions', unauthorized)
 register('payments failed outcome', paymentsFailed)
 register('payments webhook signature + idempotency', paymentsWebhook)
+register('delivery partners: delivery user shows in partners and can be assigned', deliveryPartners)
 
 run().catch(err => { console.error(err); process.exit(1) })
