@@ -16,7 +16,15 @@
       :root { --bg:#0b1220; --card:#0f172a; --fg:#e2e8f0; --muted:#93c5fd; }
       * { box-sizing: border-box; }
       body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background: var(--bg); color: var(--fg); }
-      header { padding: 16px 20px; background: #0ea5e9; color:#081018; font-weight: 700; }
+      header { padding: 16px 20px; background: #0ea5e9; color:#081018; font-weight: 700; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#081018; color:#0ea5e9; border:1px solid #0284c7; }
+      .status { margin-left:8px; }
+      .status-Submitted { background:#0b1220; color:#93c5fd; border-color:#334155; }
+      .status-Accepted { background:#0b1220; color:#a3e635; border-color:#3f6212; }
+      .status-Preparing { background:#0b1220; color:#f59e0b; border-color:#92400e; }
+      .status-ReadyForPickup { background:#0b1220; color:#f472b6; border-color:#831843; }
+      .pay-Unpaid, .pay-Failed { background:#0b1220; color:#f87171; border-color:#7f1d1d; }
+      .pay-Paid, .pay-Succeeded { background:#0b1220; color:#34d399; border-color:#065f46; }
       main { max-width: 800px; margin: 24px auto; padding: 0 16px; }
       .card { background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
       button { background:#0ea5e9; color:#081018; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
@@ -29,7 +37,10 @@
     </style>
   </head>
   <body>
-    <header>Marshanta — PWA Onboarding (Sprint 1)</header>
+    <header>
+      <div>Marshanta — PWA Onboarding (Sprint 1)</div>
+      <div class="badge" id="roleBadge">role: guest</div>
+    </header>
     <main>
       <section class="card">
         <h3>Install</h3>
@@ -37,9 +48,35 @@
         <button id="installBtn" hidden>Install App</button>
       </section>
 
+      <section class="card" id="deliverySection" style="display:none">
+        <h3>Delivery</h3>
+        <p class="muted">This section is visible only when logged in as <code>delivery</code>.</p>
+        <div class="row" style="align-items:center;gap:8px">
+          <button id="delRefreshBtn" title="Refresh my assignments">Refresh</button>
+          <label style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="delShareLocation" />
+            <span class="muted">Share live location</span>
+          </label>
+          <span class="badge" id="delBell" title="Unread partner notifications">0</span>
+        </div>
+        <div style="margin-top:12px">
+          <h4>My Assignments</h4>
+          <ul id="delAssignments"></ul>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Notifications</h4>
+          <ul id="delNotifications"></ul>
+        </div>
+        <p class="muted">Actions: Accept an assignment, then mark Picked Up and Delivered. Enable location sharing to send your position while on a job.</p>
+      </section>
+
       <section class="card">
         <h3>Welcome</h3>
         <div id="chat" class="chat"></div>
+        <div class="row">
+          <input id="chatInput" type="text" placeholder="Type a command (e.g., 'show restaurants', 'menu taco place', 'add 2 tacos')" style="flex:1; min-width:240px" />
+          <button id="chatSendBtn">Send</button>
+        </div>
         <div class="row">
           <input id="email" type="email" placeholder="email" />
           <input id="password" type="password" placeholder="password" />
@@ -47,12 +84,18 @@
             <option value="client" selected>client</option>
             <option value="staff">staff</option>
             <option value="admin">admin</option>
+            <option value="delivery">delivery</option>
           </select>
           <button id="registerBtn">Register</button>
           <button id="loginBtn">Login</button>
           <button id="logoutBtn">Logout</button>
         </div>
         <p class="muted">API Base: <code id="apiBase"></code></p>
+        <div class="row">
+          <input id="apiBaseInput" type="text" placeholder="http://192.168.1.70:4000" style="flex:1; min-width:240px" />
+          <button id="setApiBaseBtn" title="Save API base to device and reload">Set API Base</button>
+          <button id="clearApiBaseBtn" title="Clear saved API base and reload">Clear</button>
+        </div>
       </section>
 
       <section class="card">
@@ -92,6 +135,23 @@
           <select id="rcRestaurant"></select>
           <button id="rcLoadOrdersBtn">Load Orders</button>
         </div>
+        <div class="row">
+          <label>
+            <span class="muted">Status:</span>
+            <select id="rcStatusFilter">
+              <option value="all" selected>all</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Preparing">Preparing</option>
+              <option value="ReadyForPickup">ReadyForPickup</option>
+            </select>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="rcAutoRefresh" />
+            <span class="muted">Auto-refresh</span>
+          </label>
+        </div>
+        <p id="rcHint" class="muted" style="display:none">Restaurant Console is available to staff or admin only.</p>
         <ul id="rcOrdersList"></ul>
       </section>
 
@@ -103,6 +163,39 @@
         <div id="map"></div>
         <div class="row">
           <button id="stopTrackingBtn">Stop Tracking</button>
+        </div>
+      </section>
+
+      <section class="card" id="adminSection" style="display:none">
+        <h3>Admin Dashboard</h3>
+        <p class="muted">Desktop-focused admin view. Visible only to users with role <code>admin</code>.</p>
+        <div class="row" style="gap:12px; align-items:center">
+          <div class="badge" title="Total users"><span id="admUsers">0</span> users</div>
+          <div class="badge" title="Total restaurants"><span id="admRestaurants">0</span> restaurants</div>
+          <div class="badge" title="Total orders"><span id="admOrders">0</span> orders</div>
+          <div class="badge" title="Total revenue"><span id="admRevenue">$0.00</span> revenue</div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+            <span class="badge" id="admBell" title="Unread notifications">0</span>
+            <button id="admRefreshBtn" title="Refresh admin data">Refresh</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div style="flex:1; min-width:280px">
+            <h4>Users</h4>
+            <ul id="admUsersList"></ul>
+          </div>
+          <div style="flex:1; min-width:280px">
+            <h4>Restaurants</h4>
+            <ul id="admRestaurantsList"></ul>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Orders</h4>
+          <ul id="admOrdersList"></ul>
+        </div>
+        <div style="margin-top:12px">
+          <h4>Notifications</h4>
+          <ul id="admNotifications"></ul>
         </div>
       </section>
 

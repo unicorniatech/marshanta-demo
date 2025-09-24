@@ -12,6 +12,7 @@ pnpm-debug.log*
 
 # Builds
 /dist/
+/apps/web/dist/
 /build/
 /.turbo/
 /.next/
@@ -19,6 +20,11 @@ pnpm-debug.log*
 
 # OS
 .DS_Store
+
+# iOS (Capacitor)
+apps/mobile/ios/Pods/
+apps/mobile/ios/App/*.xcworkspace/xcuserdata/
+apps/mobile/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Editor
 .vscode/
