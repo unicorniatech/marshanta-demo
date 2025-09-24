@@ -58,7 +58,18 @@ export async function createUser({ email, passwordHash, name, phone, role = 'cli
                VALUES ($1, $2, $3, $4, $5)
                RETURNING id, email, name, phone, role`
   const { rows } = await q(sql, [email, passwordHash, name || null, phone || null, role])
-  return rows[0]
+  const user = rows[0]
+  // Auto-provision delivery_partners row keyed by user.id for delivery-role users.
+  // This ensures Admin assignments use a partnerId that matches the authenticated delivery user id.
+  if (String(user.role) === 'delivery') {
+    await q(
+      `INSERT INTO delivery_partners (id, name, phone, vehicle_type)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO NOTHING`,
+      [user.id, user.email, user.phone || null, 'other']
+    )
+  }
+  return user
 }
 
 export async function findUserByEmail(email) {
@@ -97,16 +108,33 @@ export async function createDeliveryPartner({ name, phone, vehicleType }) {
 }
 
 export async function listDeliveryPartners() {
-  const { rows } = await q('SELECT id, name, phone, vehicle_type FROM delivery_partners ORDER BY id')
+  // Prefer user accounts with role 'delivery' and surface their id as the partner id.
+  // Join with delivery_partners for optional display fields.
+  const { rows } = await q(`
+    SELECT u.id,
+           COALESCE(dp.name, u.email) AS name,
+           COALESCE(dp.phone, NULL) AS phone,
+           COALESCE(dp.vehicle_type, 'other') AS vehicle_type
+    FROM users u
+    LEFT JOIN delivery_partners dp ON dp.id = u.id
+    WHERE u.role = 'delivery'
+    ORDER BY u.id
+  `)
   return rows.map(r => ({ id: r.id, name: r.name, phone: r.phone, vehicleType: r.vehicle_type }))
 }
 
 export async function updateDeliveryPartner(id, { name, phone, vehicleType }) {
+  // Upsert to ensure a row exists keyed by the delivery user id
   const { rows } = await q(
-    'UPDATE delivery_partners SET name=COALESCE($2,name), phone=COALESCE($3,phone), vehicle_type=COALESCE($4,vehicle_type) WHERE id=$1 RETURNING id, name, phone, vehicle_type',
+    `INSERT INTO delivery_partners (id, name, phone, vehicle_type)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (id) DO UPDATE SET
+       name = COALESCE(EXCLUDED.name, delivery_partners.name),
+       phone = COALESCE(EXCLUDED.phone, delivery_partners.phone),
+       vehicle_type = COALESCE(EXCLUDED.vehicle_type, delivery_partners.vehicle_type)
+     RETURNING id, name, phone, vehicle_type`,
     [Number(id), name ?? null, phone ?? null, vehicleType ?? null]
   )
-  if (!rows.length) return null
   const r = rows[0]
   return { id: r.id, name: r.name, phone: r.phone, vehicleType: r.vehicle_type }
 }
