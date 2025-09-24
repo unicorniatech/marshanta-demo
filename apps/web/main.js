@@ -17,6 +17,9 @@ const els = {
   logoutBtn: document.getElementById('logoutBtn'),
   log: document.getElementById('log'),
   apiBase: document.getElementById('apiBase'),
+  apiBaseInput: document.getElementById('apiBaseInput'),
+  setApiBaseBtn: document.getElementById('setApiBaseBtn'),
+  clearApiBaseBtn: document.getElementById('clearApiBaseBtn'),
   roleBadge: document.getElementById('roleBadge'),
   loadRestaurantsBtn: document.getElementById('loadRestaurantsBtn'),
   restaurantsList: document.getElementById('restaurantsList'),
@@ -55,6 +58,27 @@ async function startPaymentFlow(orderId) {
 }
 
 els.apiBase.textContent = apiBase
+// Prefill API base input if present
+if (els.apiBaseInput) {
+  els.apiBaseInput.value = localStorage.getItem('apiBase') || ''
+}
+// Allow setting a custom API base (useful for on-device builds)
+els.setApiBaseBtn?.addEventListener('click', () => {
+  const v = (els.apiBaseInput?.value || '').trim()
+  if (!v) { alert('Enter a full URL, e.g., http://192.168.1.70:4000'); return }
+  try {
+    const u = new URL(v)
+    if (!u.protocol.startsWith('http')) throw new Error('Invalid protocol')
+    localStorage.setItem('apiBase', v)
+    location.reload()
+  } catch (e) {
+    alert('Invalid URL for API base')
+  }
+})
+els.clearApiBaseBtn?.addEventListener('click', () => {
+  localStorage.removeItem('apiBase')
+  location.reload()
+})
 // Initialize role UI badge and RC controls on load
 updateRoleUI()
 

@@ -84,12 +84,18 @@
             <option value="client" selected>client</option>
             <option value="staff">staff</option>
             <option value="admin">admin</option>
+            <option value="delivery">delivery</option>
           </select>
           <button id="registerBtn">Register</button>
           <button id="loginBtn">Login</button>
           <button id="logoutBtn">Logout</button>
         </div>
         <p class="muted">API Base: <code id="apiBase"></code></p>
+        <div class="row">
+          <input id="apiBaseInput" type="text" placeholder="http://192.168.1.70:4000" style="flex:1; min-width:240px" />
+          <button id="setApiBaseBtn" title="Save API base to device and reload">Set API Base</button>
+          <button id="clearApiBaseBtn" title="Clear saved API base and reload">Clear</button>
+        </div>
       </section>
 
       <section class="card">

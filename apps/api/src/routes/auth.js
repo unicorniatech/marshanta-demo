@@ -11,7 +11,8 @@ authRouter.post('/register', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' })
     if (await findUserByEmail(email)) return res.status(409).json({ error: 'Email already registered' })
     const passwordHash = await hashPassword(password)
-    const allowedRoles = ['client', 'staff', 'admin']
+    // Allow 'delivery' role so partners can register/login in dev
+    const allowedRoles = ['client', 'staff', 'admin', 'delivery']
     const safeRole = allowedRoles.includes(role) ? role : 'client'
     const user = await createUser({ email, passwordHash, role: safeRole })
     return res.status(201).json({ id: user.id, email: user.email })

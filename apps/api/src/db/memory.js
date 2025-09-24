@@ -56,6 +56,14 @@ export async function createUser({ email, passwordHash, name, phone, role = 'cli
   if (existing) throw Object.assign(new Error('Email already exists'), { code: 'UNIQUE_VIOLATION' })
   const user = { id: userId++, email, passwordHash, name, phone, role }
   users.push(user)
+  // Auto-provision a delivery partner record for delivery-role users so that
+  // Admin can immediately assign orders to this partner and the IDs match.
+  if (String(role) === 'delivery') {
+    const exists = deliveryPartners.find(d => d.id === user.id)
+    if (!exists) {
+      deliveryPartners.push({ id: user.id, name: email, phone: phone || '', vehicleType: 'other' })
+    }
+  }
   return { ...user }
 }
 
@@ -92,6 +100,13 @@ export async function createDeliveryPartner({ name, phone, vehicleType }) {
 }
 
 export async function listDeliveryPartners() {
+  // Ensure all delivery-role users exist as delivery partners by ID
+  users
+    .filter(u => String(u.role) === 'delivery')
+    .forEach(u => {
+      const exists = deliveryPartners.find(d => d.id === u.id)
+      if (!exists) deliveryPartners.push({ id: u.id, name: u.email, phone: u.phone || '', vehicleType: 'other' })
+    })
   return deliveryPartners.map(d => ({ ...d }))
 }
 
