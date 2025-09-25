@@ -85,25 +85,25 @@
       <button id="authClose" class="auth-close">✕</button>
       <div class="auth-card">
         <div class="tabs">
-          <button id="tabLogin" class="tab active">Login</button>
-          <button id="tabSignup" class="tab">Sign up</button>
+          <button id="tabLogin" class="tab active">Iniciar sesión</button>
+          <button id="tabSignup" class="tab">Crear cuenta</button>
         </div>
         <div class="row">
-          <input id="authEmail" type="email" placeholder="email" style="flex:1; min-width:240px" />
-          <input id="authPassword" type="password" placeholder="password" style="flex:1; min-width:160px" />
+          <input id="authEmail" type="email" placeholder="correo electrónico" style="flex:1; min-width:240px" />
+          <input id="authPassword" type="password" placeholder="contraseña" style="flex:1; min-width:160px" />
         </div>
         <div id="authRoleRow" class="role-chips" style="display:none">
-          <span class="muted">I am:</span>
-          <button class="chip" data-role="client">Client</button>
-          <button class="chip" data-role="staff">Staff</button>
-          <button class="chip" data-role="delivery">Delivery</button>
+          <span class="muted">Soy:</span>
+          <button class="chip" data-role="client">Cliente</button>
+          <button class="chip" data-role="staff">Personal</button>
+          <button class="chip" data-role="delivery">Repartidor</button>
           <button class="chip" data-role="admin">Admin</button>
         </div>
         <div class="auth-actions">
-          <button id="authLoginBtn" style="flex:1">Login</button>
-          <button id="authSignupBtn" style="flex:1">Create Account</button>
+          <button id="authLoginBtn" style="flex:1">Entrar</button>
+          <button id="authSignupBtn" style="flex:1">Crear cuenta</button>
         </div>
-        <p class="muted" style="margin-top:8px">Tip: Choose a role on Sign up. On device builds, set API Base to your Mac IP first.</p>
+        <p class="muted" style="margin-top:8px">Tip: Elige tu rol al registrarte. En dispositivos, configura primero el API Base con la IP de tu computadora.</p>
       </div>
     </div>
     <header>
@@ -148,22 +148,22 @@
         <h3>Reparto</h3>
         <p class="muted">Esta sección es visible solo cuando inicias sesión como <code>repartidor</code>.</p>
         <div class="row" style="align-items:center;gap:8px">
-          <button id="delRefreshBtn" title="Refresh my assignments">Refresh</button>
+          <button id="delRefreshBtn" title="Actualizar mis asignaciones">Actualizar</button>
           <label style="display:flex;align-items:center;gap:6px">
             <input type="checkbox" id="delShareLocation" />
-            <span class="muted">Share live location</span>
+            <span class="muted">Compartir ubicación en vivo</span>
           </label>
-          <span class="badge" id="delBell" title="Unread partner notifications">0</span>
+          <span class="badge" id="delBell" title="Notificaciones no leídas">0</span>
         </div>
         <div style="margin-top:12px">
-          <h4>My Assignments</h4>
+          <h4>Mis asignaciones</h4>
           <ul id="delAssignments"></ul>
         </div>
         <div style="margin-top:12px">
-          <h4>Notifications</h4>
+          <h4>Notificaciones</h4>
           <ul id="delNotifications"></ul>
         </div>
-        <p class="muted">Actions: Accept an assignment, then mark Picked Up and Delivered. Enable location sharing to send your position while on a job.</p>
+        <p class="muted">Acciones: Acepta una asignación, luego marca Recogido y Entregado. Activa compartir ubicación para enviar tu posición durante el servicio.</p>
       </section>
 
       <section class="card">
@@ -189,15 +189,15 @@
         <p class="muted">API Base: <code id="apiBase"></code></p>
         <div class="row">
           <input id="apiBaseInput" type="text" placeholder="http://192.168.1.70:4000" style="flex:1; min-width:240px" />
-          <button id="setApiBaseBtn" title="Save API base to device and reload">Set API Base</button>
-          <button id="clearApiBaseBtn" title="Clear saved API base and reload">Clear</button>
+          <button id="setApiBaseBtn" title="Guardar API Base y recargar">Guardar API Base</button>
+          <button id="clearApiBaseBtn" title="Borrar API Base guardado y recargar">Borrar</button>
         </div>
       </section>
 
       <section class="card" data-reveal>
         <h3>Restaurantes</h3>
         <div class="row">
-          <button id="loadRestaurantsBtn">Show Restaurants</button>
+          <button id="loadRestaurantsBtn">Ver restaurantes</button>
         </div>
         <ul id="restaurantsList"></ul>
       </section>
@@ -213,10 +213,10 @@
         <ul id="cartList"></ul>
         <p><strong>Total:</strong> <span id="cartTotal">$0.00</span></p>
         <div class="row">
-          <button id="clearCartBtn">Clear Cart</button>
-          <button id="reviewOrderBtn">Review Order</button>
-          <button id="placeOrderBtn">Place Order</button>
-          <button id="refreshOrdersBtn">Refresh Orders</button>
+          <button id="clearCartBtn">Vaciar carrito</button>
+          <button id="reviewOrderBtn">Revisar pedido</button>
+          <button id="placeOrderBtn">Realizar pedido</button>
+          <button id="refreshOrdersBtn">Actualizar pedidos</button>
         </div>
       </section>
 
@@ -229,11 +229,11 @@
         <h3>Consola del restaurante</h3>
         <div class="row">
           <select id="rcRestaurant"></select>
-          <button id="rcLoadOrdersBtn">Load Orders</button>
+          <button id="rcLoadOrdersBtn">Cargar pedidos</button>
         </div>
         <div class="row">
           <label>
-            <span class="muted">Status:</span>
+            <span class="muted">Estatus:</span>
             <select id="rcStatusFilter">
               <option value="all" selected>all</option>
               <option value="Submitted">Submitted</option>
@@ -244,17 +244,17 @@
           </label>
           <label style="display:flex;align-items:center;gap:6px">
             <input type="checkbox" id="rcAutoRefresh" />
-            <span class="muted">Auto-refresh</span>
+            <span class="muted">Autoactualizar</span>
           </label>
         </div>
-        <p id="rcHint" class="muted" style="display:none">Restaurant Console is available to staff or admin only.</p>
+        <p id="rcHint" class="muted" style="display:none">La Consola del restaurante está disponible solo para personal o administrador.</p>
         <ul id="rcOrdersList"></ul>
       </section>
 
       <section class="card" data-reveal>
         <h3>Rastreo</h3>
-        <p class="muted">Active Order: <span id="trackingOrder">—</span></p>
-        <div id="trackingStatus">Not tracking.</div>
+        <p class="muted">Pedido activo: <span id="trackingOrder">—</span></p>
+        <div id="trackingStatus">Sin rastreo.</div>
         <div id="trackingCoords" class="muted"></div>
         <div id="map"></div>
         <div class="row">

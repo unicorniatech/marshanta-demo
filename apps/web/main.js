@@ -123,8 +123,8 @@ selectSignupRole('client')
 els.authLoginBtn?.addEventListener('click', async () => {
   const email = (els.authEmail?.value || '').trim()
   const password = els.authPassword?.value || ''
-  if (!email) return say('Please enter your email.')
-  if (!password) return say('Please enter your password.')
+  if (!email) return say('Por favor ingresa tu correo electrónico.')
+  if (!password) return say('Por favor ingresa tu contraseña.')
   const r = await api('/auth/login', { method: 'POST', body: { email, password } })
   if (r.ok && r.data.token) {
     localStorage.setItem(tokenKey, r.data.token)
@@ -132,26 +132,26 @@ els.authLoginBtn?.addEventListener('click', async () => {
     if (me.ok) {
       try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
       try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
-      say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
+      say(`Hola ${me.data.user.email} (rol: ${me.data.user.role})`)
       updateRoleUI(); startRcAuto(); if (currentRole === 'admin') { await loadAdmin() }
       hideAuth()
     }
   } else {
-    say(`Login failed: ${r.status} ${r.data.error || ''}`)
+    say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
   }
 })
 els.authSignupBtn?.addEventListener('click', async () => {
   const email = (els.authEmail?.value || '').trim()
   const password = els.authPassword?.value || ''
   const role = signupRole
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Please enter a valid email.')
-  if (!password || password.length < 6) return say('Password must be at least 6 characters.')
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Ingresa un correo válido.')
+  if (!password || password.length < 6) return say('La contraseña debe tener al menos 6 caracteres.')
   const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
   if (r.ok) {
-    say(`Registered ${r.data.email || email} — now login`)
+    say(`Registro exitoso para ${r.data.email || email} — ahora inicia sesión`)
     showAuth('login')
   } else {
-    say(`Register failed: ${r.status} ${r.data.error || ''}`)
+    say(`Registro fallido: ${r.status} ${r.data.error || ''}`)
   }
 })
 
