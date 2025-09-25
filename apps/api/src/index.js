@@ -72,6 +72,10 @@ app.use(globalLimiter)
 app.get('/healthz', (req, res) => {
   res.json({ ok: true, service: 'api', ts: Date.now() })
 })
+// Back-compat alias used by some clients/tests
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'api', ts: Date.now() })
+})
 
 // Auth routes
 app.use('/auth', authRouter)
