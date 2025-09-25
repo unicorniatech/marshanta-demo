@@ -39,6 +39,13 @@ export async function setAssignmentStatus(id, status) {
   return { id: r.id, orderId: r.order_id, partnerId: r.partner_id, status: r.status, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() }
 }
 
+export async function getAssignmentForOrder(orderId) {
+  const { rows } = await q('SELECT id, order_id, partner_id, status, created_at, updated_at FROM delivery_assignments WHERE order_id=$1 ORDER BY id DESC LIMIT 1', [Number(orderId)])
+  if (!rows.length) return null
+  const r = rows[0]
+  return { id: r.id, orderId: r.order_id, partnerId: r.partner_id, status: r.status, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() }
+}
+
 export async function saveDeliveryLocation({ partnerId, orderId, lat, lng, ts }) {
   const { rows } = await q('INSERT INTO delivery_locations (partner_id, order_id, lat, lng, ts) VALUES ($1,$2,$3,$4,COALESCE($5, NOW())) RETURNING id, partner_id, order_id, lat, lng, ts', [Number(partnerId), orderId ? Number(orderId) : null, Number(lat), Number(lng), ts ? new Date(ts) : null])
   const r = rows[0]

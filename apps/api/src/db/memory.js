@@ -29,6 +29,14 @@ export async function setAssignmentStatus(id, status) {
   return { ...a }
 }
 
+export async function getAssignmentForOrder(orderId) {
+  const rows = assignments.filter(a => a.orderId === Number(orderId))
+  if (!rows.length) return null
+  // Return the latest by id
+  const a = rows.sort((x, y) => y.id - x.id)[0]
+  return { ...a }
+}
+
 export async function saveDeliveryLocation({ partnerId, orderId, lat, lng, ts }) {
   const id = locations.length + 1
   const rec = { id, partnerId: Number(partnerId), orderId: orderId ? Number(orderId) : null, lat: Number(lat), lng: Number(lng), ts: ts || Date.now() }

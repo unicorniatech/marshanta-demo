@@ -52,6 +52,7 @@ export const listAssignmentsForPartner = driver.listAssignmentsForPartner
 export const setAssignmentStatus = driver.setAssignmentStatus
 export const saveDeliveryLocation = driver.saveDeliveryLocation
 export const getLatestLocationForOrder = driver.getLatestLocationForOrder
+export const getAssignmentForOrder = driver.getAssignmentForOrder
 
 // Delivery partners (admin management)
 export const updateDeliveryPartner = driver.updateDeliveryPartner

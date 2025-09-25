@@ -1,7 +1,7 @@
 import express from 'express'
 
-import { createOrder, listOrders, getOrderById, updateOrderStatus } from '../db/adapter.js'
-import { emitAdminEvent } from '../lib/events.js'
+import { createOrder, listOrders, getOrderById, updateOrderStatus, getAssignmentForOrder } from '../db/adapter.js'
+import { emitAdminEvent, emitPartnerEvent } from '../lib/events.js'
 import { authGuard, requireRole } from '../lib/auth.js'
 
 export const ordersRouter = express.Router()
@@ -42,6 +42,13 @@ ordersRouter.post('/:id/status', authGuard, requireRole(['staff', 'admin']), asy
     if (!next) return res.status(400).json({ error: 'next required' })
     const o = await updateOrderStatus(req.params.id, next)
     emitAdminEvent({ type: 'order_status_changed', orderId: o.id, restaurantId: o.restaurantId, message: `Order #${o.id} -> ${o.status}` })
+    // Notify assigned delivery partner about the status change (Accepted/Preparing/ReadyForPickup)
+    try {
+      const a = await getAssignmentForOrder(o.id)
+      if (a && a.partnerId) {
+        emitPartnerEvent(a.partnerId, { type: 'order_status', orderId: o.id, status: o.status, message: `Order #${o.id} status: ${o.status}` })
+      }
+    } catch (_) {}
     res.json({ order: o })
   } catch (e) {
     if (e && e.code === 'INVALID_TRANSITION') return res.status(409).json({ error: e.message })

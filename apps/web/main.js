@@ -1079,6 +1079,14 @@ function renderRcOrders(rows = []) {
       })
       li.appendChild(btn)
     }
+    // When order is ready for pickup, allow staff/admin to track driver's live location
+    if (o.status === 'ReadyForPickup') {
+      const trackBtn = document.createElement('button')
+      trackBtn.textContent = 'Track Driver'
+      trackBtn.title = 'Open live driver location for this order'
+      trackBtn.addEventListener('click', () => trackOrder(o.id))
+      li.appendChild(trackBtn)
+    }
     rc.list.appendChild(li)
   })
 }
