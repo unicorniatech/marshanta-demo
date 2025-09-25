@@ -26,7 +26,7 @@
       .pay-Unpaid, .pay-Failed { background:#0b1220; color:#f87171; border-color:#7f1d1d; }
       .pay-Paid, .pay-Succeeded { background:#0b1220; color:#34d399; border-color:#065f46; }
       main { max-width: 800px; margin: 24px auto; padding: 0 16px; }
-      .card { background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+      .card { background: rgba(15,23,42,0.75); backdrop-filter: blur(10px); border: 1px solid rgba(148,163,184,0.08); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
       button { background:#0ea5e9; color:#081018; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
       input { padding:10px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--fg); }
       .row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -45,9 +45,41 @@
       .chip.selected { background:#0ea5e9; color:#081018; border-color:#0284c7; font-weight:700; }
       .auth-actions { display:flex; gap:8px; margin-top:12px; }
       .auth-close { position:absolute; top:16px; right:16px; background:transparent; color:#e2e8f0; border:1px solid #334155; }
+      /* Marketing */
+      .hero { position: relative; overflow: hidden; border-radius: 20px; padding: 24px; background: linear-gradient(135deg, rgba(14,165,233,0.28), rgba(34,197,94,0.22)); border:1px solid rgba(148,163,184,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.45); backdrop-filter: blur(12px); }
+      .hero h2 { margin: 0 0 8px 0; }
+      .hero p { margin: 0 0 12px 0; color: var(--muted); }
+      .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+      .feature { background: rgba(2,6,23,0.6); backdrop-filter: blur(8px); border:1px solid rgba(148,163,184,0.08); border-radius:14px; padding:12px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+      .gallery { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+      .gallery img { width: 100%; height: 120px; object-fit: cover; border-radius: 14px; border:1px solid rgba(148,163,184,0.08); box-shadow: 0 8px 24px rgba(0,0,0,0.35); transition: transform .3s ease, box-shadow .3s ease; }
+      .gallery img:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 12px 32px rgba(0,0,0,0.45); }
+      /* How it works modal */
+      .how-overlay { position: fixed; inset: 0; background: rgba(2,6,23,0.55); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1001; }
+      .how-card { width: 92%; max-width: 560px; background: rgba(15,23,42,0.86); border: 1px solid rgba(148,163,184,0.1); border-radius: 18px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+      .steps { display:grid; gap:10px; }
+      /* Reveal animations */
+      [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+      [data-reveal].in { opacity: 1; transform: translateY(0); }
     </style>
   </head>
   <body>
+    <!-- How it works Modal -->
+    <div id="howOverlay" class="how-overlay" aria-hidden="true">
+      <div class="how-card">
+        <h3>¿Cómo funciona?</h3>
+        <div class="steps">
+          <div class="feature"><strong>1. Explora restaurantes</strong><p class="muted">Descubre tus lugares favoritos cerca de ti.</p></div>
+          <div class="feature"><strong>2. Arma tu pedido</strong><p class="muted">Agrega platillos al carrito y revisa el total.</p></div>
+          <div class="feature"><strong>3. Paga seguro</strong><p class="muted">Finaliza con un checkout rápido y transparente.</p></div>
+          <div class="feature"><strong>4. Rastrea en vivo</strong><p class="muted">Sigue a tu repartidor y recibe tu pedido a tiempo.</p></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button id="howCloseBtn" style="background:#0b1220; color:var(--fg); border:1px solid #334155">Cerrar</button>
+          <button id="howSignupBtn">Crear cuenta</button>
+        </div>
+      </div>
+    </div>
     <!-- Auth Modal -->
     <div id="authOverlay" class="auth-overlay" aria-hidden="true">
       <button id="authClose" class="auth-close">✕</button>
@@ -75,19 +107,46 @@
       </div>
     </div>
     <header>
-      <div>Marshanta — PWA Onboarding (Sprint 1)</div>
-      <div class="badge" id="roleBadge">role: guest</div>
+      <div>Marshanta — Tu comida favorita, a tu puerta</div>
+      <div class="badge" id="roleBadge">rol: invitado</div>
     </header>
     <main>
-      <section class="card">
-        <h3>Install</h3>
-        <p class="muted">Add to home screen for a better experience.</p>
-        <button id="installBtn" hidden>Install App</button>
+      <!-- Marketing (Cliente) -->
+      <section class="card" id="marketingSection" style="display:none">
+        <div class="hero">
+          <h2>Pide comida a tu manera</h2>
+          <p>Explora menús, ordena en segundos y rastrea a tu repartidor en tiempo real.</p>
+          <div class="row">
+            <button id="mkStartOrderBtn">Empieza tu pedido</button>
+            <button id="mkHowItWorksBtn" style="background:#0b1220; color:var(--fg); border:1px solid #334155">¿Cómo funciona?</button>
+          </div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="gallery">
+          <img alt="Tacos" src="https://images.unsplash.com/photo-1601924582971-b0c5be3a5c9a?q=80&w=800&auto=format&fit=crop" />
+          <img alt="Hamburguesa" src="https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop" />
+          <img alt="Pizza" src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=800&auto=format&fit=crop" />
+          <img alt="Sushi" src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop" />
+          <img alt="Ensalada" src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800&auto=format&fit=crop" />
+          <img alt="Postre" src="https://images.unsplash.com/photo-1551024709-8f23befc6cf7?q=80&w=800&auto=format&fit=crop" />
+        </div>
+        <div style="height:12px"></div>
+        <div class="grid">
+          <div class="feature"><strong>Checkout rápido</strong><p class="muted">Repite tus favoritos en un toque.</p></div>
+          <div class="feature"><strong>Rastreo en vivo</strong><p class="muted">Conoce el ETA y la ruta del repartidor.</p></div>
+          <div class="feature"><strong>Precio claro</strong><p class="muted">Transparencia del carrito a tu puerta.</p></div>
+          <div class="feature"><strong>Negocios locales</strong><p class="muted">Apoya a tu comunidad.</p></div>
+        </div>
+      </section>
+      <section class="card" data-reveal>
+        <h3>Instalar</h3>
+        <p class="muted">Agrega a la pantalla de inicio para una mejor experiencia.</p>
+        <button id="installBtn" hidden>Instalar app</button>
       </section>
 
-      <section class="card" id="deliverySection" style="display:none">
-        <h3>Delivery</h3>
-        <p class="muted">This section is visible only when logged in as <code>delivery</code>.</p>
+      <section class="card" id="deliverySection" style="display:none" data-reveal>
+        <h3>Reparto</h3>
+        <p class="muted">Esta sección es visible solo cuando inicias sesión como <code>repartidor</code>.</p>
         <div class="row" style="align-items:center;gap:8px">
           <button id="delRefreshBtn" title="Refresh my assignments">Refresh</button>
           <label style="display:flex;align-items:center;gap:6px">
@@ -135,22 +194,22 @@
         </div>
       </section>
 
-      <section class="card">
-        <h3>Restaurants</h3>
+      <section class="card" data-reveal>
+        <h3>Restaurantes</h3>
         <div class="row">
           <button id="loadRestaurantsBtn">Show Restaurants</button>
         </div>
         <ul id="restaurantsList"></ul>
       </section>
 
-      <section class="card">
-        <h3>Menu</h3>
+      <section class="card" data-reveal>
+        <h3>Menú</h3>
         <p class="muted" id="menuHeader">No restaurant selected.</p>
         <ul id="menuList"></ul>
       </section>
 
-      <section class="card">
-        <h3>Cart</h3>
+      <section class="card" data-reveal>
+        <h3>Carrito</h3>
         <ul id="cartList"></ul>
         <p><strong>Total:</strong> <span id="cartTotal">$0.00</span></p>
         <div class="row">
@@ -161,13 +220,13 @@
         </div>
       </section>
 
-      <section class="card">
-        <h3>Orders</h3>
+      <section class="card" data-reveal>
+        <h3>Pedidos</h3>
         <ul id="ordersList"></ul>
       </section>
 
-      <section class="card" id="rcSection">
-        <h3>Restaurant Console</h3>
+      <section class="card" id="rcSection" data-reveal>
+        <h3>Consola del restaurante</h3>
         <div class="row">
           <select id="rcRestaurant"></select>
           <button id="rcLoadOrdersBtn">Load Orders</button>
@@ -192,8 +251,8 @@
         <ul id="rcOrdersList"></ul>
       </section>
 
-      <section class="card">
-        <h3>Tracking</h3>
+      <section class="card" data-reveal>
+        <h3>Rastreo</h3>
         <p class="muted">Active Order: <span id="trackingOrder">—</span></p>
         <div id="trackingStatus">Not tracking.</div>
         <div id="trackingCoords" class="muted"></div>
@@ -203,8 +262,8 @@
         </div>
       </section>
 
-      <section class="card" id="adminSection" style="display:none">
-        <h3>Admin Dashboard</h3>
+      <section class="card" id="adminSection" style="display:none" data-reveal>
+        <h3>Panel de administración</h3>
         <p class="muted">Desktop-focused admin view. Visible only to users with role <code>admin</code>.</p>
         <div class="row" style="gap:12px; align-items:center">
           <div class="badge" title="Total users"><span id="admUsers">0</span> users</div>

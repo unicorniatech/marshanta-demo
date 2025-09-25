@@ -30,6 +30,12 @@ const els = {
   authRoleRow: document.getElementById('authRoleRow'),
   authLoginBtn: document.getElementById('authLoginBtn'),
   authSignupBtn: document.getElementById('authSignupBtn'),
+  // Marketing
+  mkStartOrderBtn: document.getElementById('mkStartOrderBtn'),
+  mkHowItWorksBtn: document.getElementById('mkHowItWorksBtn'),
+  howOverlay: document.getElementById('howOverlay'),
+  howCloseBtn: document.getElementById('howCloseBtn'),
+  howSignupBtn: document.getElementById('howSignupBtn'),
   roleBadge: document.getElementById('roleBadge'),
   loadRestaurantsBtn: document.getElementById('loadRestaurantsBtn'),
   restaurantsList: document.getElementById('restaurantsList'),
@@ -40,33 +46,11 @@ const els = {
   clearCartBtn: document.getElementById('clearCartBtn'),
   reviewOrderBtn: document.getElementById('reviewOrderBtn'),
   placeOrderBtn: document.getElementById('placeOrderBtn'),
-  refreshOrdersBtn: document.getElementById('refreshOrdersBtn'),
-  ordersList: document.getElementById('ordersList'),
   trackingOrder: document.getElementById('trackingOrder'),
   trackingStatus: document.getElementById('trackingStatus'),
   trackingCoords: document.getElementById('trackingCoords'),
   stopTrackingBtn: document.getElementById('stopTrackingBtn')
 }
-
-// ---------- Payments (Story 2.4) ----------
-async function startPaymentFlow(orderId) {
-  try {
-    // 1) Request intent
-    const intent = await api('/payments/intent', { method: 'POST', body: { orderId } })
-    if (!intent.ok) return say(`Payment intent failed: ${intent.status} ${intent.data.error || ''}`)
-    const { clientSecret, amountCents } = intent.data
-    say(`Payment intent created for order #${orderId}: ${formatPrice(amountCents)}`)
-
-    // 2) Simulate confirmation (success)
-    const confirm = await api('/payments/confirm', { method: 'POST', body: { orderId, clientSecret, outcome: 'succeeded' } })
-    if (!confirm.ok) return say(`Payment confirm failed: ${confirm.status} ${confirm.data.error || ''}`)
-    say(`Payment ${confirm.data.paymentStatus} for order #${orderId}`)
-    await refreshOrders()
-  } catch (e) {
-    log(`payment error: ${e.message}`)
-  }
-}
-
 els.apiBase.textContent = apiBase
 // Prefill API base input if present
 if (els.apiBaseInput) {
@@ -180,6 +164,34 @@ try {
   }
 } catch (_) {}
 
+// ---------- Marketing wiring ----------
+function showHow() {
+  if (els.howOverlay) { els.howOverlay.style.display = 'flex'; els.howOverlay.setAttribute('aria-hidden', 'false') }
+}
+function hideHow() {
+  if (els.howOverlay) { els.howOverlay.style.display = 'none'; els.howOverlay.setAttribute('aria-hidden', 'true') }
+}
+els.mkStartOrderBtn?.addEventListener('click', async () => {
+  // Scroll to Restaurants and auto-load
+  try {
+    await loadRestaurants()
+  } catch (_) {}
+  document.getElementById('restaurantsList')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
+els.mkHowItWorksBtn?.addEventListener('click', () => showHow())
+els.howCloseBtn?.addEventListener('click', () => hideHow())
+els.howSignupBtn?.addEventListener('click', () => { hideHow(); showAuth('signup'); selectSignupRole('client') })
+
+// ---------- Reveal on scroll ----------
+try {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) e.target.classList.add('in')
+    })
+  }, { rootMargin: '0px 0px -15% 0px', threshold: 0.1 })
+  document.querySelectorAll('[data-reveal]')?.forEach(el => io.observe(el))
+} catch(_) {}
+
 function log(msg) {
   els.log.textContent += `\n${msg}`
 }
@@ -239,6 +251,14 @@ function updateRoleUI() {
     const rcSection = document.getElementById('rcSection')
     if (rcSection) {
       rcSection.style.display = isStaff() ? '' : 'none'
+    }
+
+    // Marketing (client only)
+    const marketing = document.getElementById('marketingSection')
+    if (marketing) {
+      // Show to guests (no role) and clients; hide for staff/delivery/admin
+      const showMk = !currentRole || currentRole === 'client'
+      marketing.style.display = showMk ? '' : 'none'
     }
 
     const rcRestaurantEl = document.getElementById('rcRestaurant')
