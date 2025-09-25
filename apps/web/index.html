@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es-MX">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -167,24 +167,24 @@
       </section>
 
       <section class="card">
-        <h3>Welcome</h3>
+        <h3>Bienvenido</h3>
         <div id="chat" class="chat"></div>
         <div class="row">
-          <input id="chatInput" type="text" placeholder="Type a command (e.g., 'show restaurants', 'menu taco place', 'add 2 tacos')" style="flex:1; min-width:240px" />
-          <button id="chatSendBtn">Send</button>
+          <input id="chatInput" type="text" placeholder="Escribe un comando (p. ej., 'ver restaurantes', 'menú tacos', 'agregar 2 tacos')" style="flex:1; min-width:240px" />
+          <button id="chatSendBtn">Enviar</button>
         </div>
         <div class="row">
-          <input id="email" type="email" placeholder="email" />
-          <input id="password" type="password" placeholder="password" />
+          <input id="email" type="email" placeholder="correo electrónico" />
+          <input id="password" type="password" placeholder="contraseña" />
           <select id="role">
-            <option value="client" selected>client</option>
-            <option value="staff">staff</option>
+            <option value="client" selected>cliente</option>
+            <option value="staff">personal</option>
             <option value="admin">admin</option>
-            <option value="delivery">delivery</option>
+            <option value="delivery">repartidor</option>
           </select>
-          <button id="registerBtn">Register</button>
-          <button id="loginBtn">Login</button>
-          <button id="logoutBtn">Logout</button>
+          <button id="registerBtn">Registrar</button>
+          <button id="loginBtn">Entrar</button>
+          <button id="logoutBtn">Salir</button>
         </div>
         <p class="muted">API Base: <code id="apiBase"></code></p>
         <div class="row">
@@ -204,7 +204,7 @@
 
       <section class="card" data-reveal>
         <h3>Menú</h3>
-        <p class="muted" id="menuHeader">No restaurant selected.</p>
+        <p class="muted" id="menuHeader">Ningún restaurante seleccionado.</p>
         <ul id="menuList"></ul>
       </section>
 
@@ -235,11 +235,11 @@
           <label>
             <span class="muted">Estatus:</span>
             <select id="rcStatusFilter">
-              <option value="all" selected>all</option>
-              <option value="Submitted">Submitted</option>
-              <option value="Accepted">Accepted</option>
-              <option value="Preparing">Preparing</option>
-              <option value="ReadyForPickup">ReadyForPickup</option>
+              <option value="all" selected>todas</option>
+              <option value="Submitted">Enviada</option>
+              <option value="Accepted">Aceptada</option>
+              <option value="Preparing">Preparando</option>
+              <option value="ReadyForPickup">Lista para recoger</option>
             </select>
           </label>
           <label style="display:flex;align-items:center;gap:6px">
@@ -258,39 +258,39 @@
         <div id="trackingCoords" class="muted"></div>
         <div id="map"></div>
         <div class="row">
-          <button id="stopTrackingBtn">Stop Tracking</button>
+          <button id="stopTrackingBtn">Detener rastreo</button>
         </div>
       </section>
 
       <section class="card" id="adminSection" style="display:none" data-reveal>
         <h3>Panel de administración</h3>
-        <p class="muted">Desktop-focused admin view. Visible only to users with role <code>admin</code>.</p>
+        <p class="muted">Vista de administrador enfocada en escritorio. Visible solo para usuarios con rol <code>admin</code>.</p>
         <div class="row" style="gap:12px; align-items:center">
-          <div class="badge" title="Total users"><span id="admUsers">0</span> users</div>
-          <div class="badge" title="Total restaurants"><span id="admRestaurants">0</span> restaurants</div>
-          <div class="badge" title="Total orders"><span id="admOrders">0</span> orders</div>
-          <div class="badge" title="Total revenue"><span id="admRevenue">$0.00</span> revenue</div>
+          <div class="badge" title="Usuarios totales"><span id="admUsers">0</span> usuarios</div>
+          <div class="badge" title="Restaurantes totales"><span id="admRestaurants">0</span> restaurantes</div>
+          <div class="badge" title="Pedidos totales"><span id="admOrders">0</span> pedidos</div>
+          <div class="badge" title="Ingresos"><span id="admRevenue">$0.00</span> ingresos</div>
           <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
-            <span class="badge" id="admBell" title="Unread notifications">0</span>
-            <button id="admRefreshBtn" title="Refresh admin data">Refresh</button>
+            <span class="badge" id="admBell" title="Notificaciones no leídas">0</span>
+            <button id="admRefreshBtn" title="Actualizar datos de admin">Actualizar</button>
           </div>
         </div>
         <div class="row" style="margin-top:12px">
           <div style="flex:1; min-width:280px">
-            <h4>Users</h4>
+            <h4>Usuarios</h4>
             <ul id="admUsersList"></ul>
           </div>
           <div style="flex:1; min-width:280px">
-            <h4>Restaurants</h4>
+            <h4>Restaurantes</h4>
             <ul id="admRestaurantsList"></ul>
           </div>
         </div>
         <div style="margin-top:12px">
-          <h4>Orders</h4>
+          <h4>Pedidos</h4>
           <ul id="admOrdersList"></ul>
         </div>
         <div style="margin-top:12px">
-          <h4>Notifications</h4>
+          <h4>Notificaciones</h4>
           <ul id="admNotifications"></ul>
         </div>
       </section>

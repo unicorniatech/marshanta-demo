@@ -265,23 +265,23 @@ function updateRoleUI() {
     const loadBtn = document.getElementById('rcLoadOrdersBtn')
     const rcHint = document.getElementById('rcHint')
     const badge = els.roleBadge
-    const roleText = currentRole || 'guest'
-    if (badge) badge.textContent = `role: ${roleText}`
+    const roleText = currentRole || 'invitado'
+    if (badge) badge.textContent = `rol: ${roleText}`
     if (loadBtn) {
       loadBtn.disabled = !isStaff()
-      loadBtn.title = isStaff() ? '' : 'Restaurant Console is available to staff or admin only.'
+      loadBtn.title = isStaff() ? '' : 'La Consola del restaurante está disponible solo para personal o administrador.'
     }
     if (rcRestaurantEl) {
       rcRestaurantEl.disabled = !isStaff()
-      rcRestaurantEl.title = isStaff() ? '' : 'Login as staff or admin to select a restaurant.'
+      rcRestaurantEl.title = isStaff() ? '' : 'Inicia sesión como personal o admin para seleccionar un restaurante.'
     }
     if (rc.statusFilter) {
       rc.statusFilter.disabled = !isStaff()
-      rc.statusFilter.title = isStaff() ? '' : 'Login as staff or admin to filter orders.'
+      rc.statusFilter.title = isStaff() ? '' : 'Inicia sesión como personal o admin para filtrar pedidos.'
     }
     if (rc.autoRefresh) {
       rc.autoRefresh.disabled = !isStaff()
-      rc.autoRefresh.title = isStaff() ? '' : 'Login as staff or admin to enable auto-refresh.'
+      rc.autoRefresh.title = isStaff() ? '' : 'Inicia sesión como personal o admin para habilitar auto-actualización.'
       if (!isStaff()) {
         rc.autoRefresh.checked = false
         stopRcAuto()
@@ -320,10 +320,10 @@ async function api(path, { method = 'GET', body } = {}) {
 async function loadRestaurants() {
   try {
     const r = await api('/restaurants')
-    if (!r.ok) return say(`Could not load restaurants (${r.status})`)
+    if (!r.ok) return say(`No se pudieron cargar los restaurantes (${r.status})`)
     renderRestaurants(r.data.restaurants)
   } catch (e) {
-    log(`restaurants error: ${e.message}`)
+    log(`error restaurantes: ${e.message}`)
   }
 }
 
@@ -341,14 +341,14 @@ function renderRestaurants(rows = []) {
 
 async function selectRestaurant(r) {
   selectedRestaurant = r
-  els.menuHeader.textContent = `Menu — ${r.name}`
+  els.menuHeader.textContent = `Menú — ${r.name}`
   els.menuList.innerHTML = ''
   try {
     const m = await api(`/restaurants/${r.id}/menu`)
-    if (!m.ok) return say(`Could not load menu (${m.status})`)
+    if (!m.ok) return say(`No se pudo cargar el menú (${m.status})`)
     renderMenu(m.data.items || [])
   } catch (e) {
-    log(`menu error: ${e.message}`)
+    log(`error menú: ${e.message}`)
   }
 }
 
@@ -358,7 +358,7 @@ function renderMenu(items = []) {
   items.forEach(it => {
     const li = document.createElement('li')
     const add = document.createElement('button')
-    add.textContent = `Add`
+    add.textContent = `Agregar`
     add.addEventListener('click', () => addToCart(it))
     li.textContent = `${it.name} — ${formatPrice(it.priceCents)} `
     li.appendChild(add)
@@ -367,7 +367,7 @@ function renderMenu(items = []) {
 }
 
 function addToCart(item) {
-  if (!selectedRestaurant) return say('Select a restaurant first')
+  if (!selectedRestaurant) return say('Selecciona un restaurante primero')
   const key = `${selectedRestaurant.id}:${item.id}`
   const existing = cart.find(c => `${c.restaurantId}:${c.itemId}` === key)
   if (existing) existing.qty += 1
@@ -414,19 +414,19 @@ function summarizeCart() {
 }
 
 async function placeOrder() {
-  if (!selectedRestaurant) return say('Please select a restaurant before placing an order.')
-  if (!cart.length) return say('Add items to the cart first.')
+  if (!selectedRestaurant) return say('Selecciona un restaurante antes de realizar un pedido.')
+  if (!cart.length) return say('Agrega artículos al carrito primero.')
   const items = cart.map(c => ({ itemId: c.itemId, name: c.name, priceCents: c.priceCents, qty: c.qty }))
   try {
     els.placeOrderBtn.disabled = true
     const r = await api('/orders', { method: 'POST', body: { restaurantId: selectedRestaurant.id, items } })
     if (r.ok) {
-      say(`Order placed! ID: ${r.data.order.id}, status: ${r.data.order.status}`)
+      say(`¡Pedido realizado! ID: ${r.data.order.id}, estatus: ${r.data.order.status}`)
       cart = []
       renderCart()
       await refreshOrders()
     } else {
-      say(`Failed to place order: ${r.status} ${r.data.error || ''}`)
+      say(`No se pudo realizar el pedido: ${r.status} ${r.data.error || ''}`)
     }
   } finally {
     els.placeOrderBtn.disabled = false
@@ -462,7 +462,7 @@ function restoreCart() {
 
 async function refreshOrders() {
   const r = await api('/orders')
-  if (!r.ok) return say(`Failed to load orders: ${r.status}`)
+  if (!r.ok) return say(`No se pudieron cargar los pedidos: ${r.status}`)
   renderOrders(r.data.orders || [])
 }
 
@@ -520,13 +520,13 @@ async function advanceOrder(id, next) {
   if (r.ok) {
     await refreshOrders()
   } else if (r.status === 409) {
-    say(`Invalid transition: ${r.data.error}`)
+    say(`Transición inválida: ${r.data.error}`)
   } else if (r.status === 401) {
-    say('Please login to perform this action.')
+    say('Inicia sesión para realizar esta acción.')
   } else if (r.status === 403) {
-    say('Forbidden: staff or admin role required to advance orders.')
+    say('Prohibido: se requiere rol de personal o administrador para avanzar pedidos.')
   } else {
-    say(`Failed to update: ${r.status}`)
+    say(`No se pudo actualizar: ${r.status}`)
   }
 }
 
@@ -1092,7 +1092,7 @@ function renderRcOrders(rows = []) {
     const next = nextStatus(o.status)
     if (next) {
       const btn = document.createElement('button')
-      btn.textContent = `Advance → ${next}`
+      btn.textContent = `Avanzar → ${next}`
       btn.addEventListener('click', async () => {
         btn.disabled = true
         try { await advanceOrder(o.id, next); await rcLoadOrders() } finally { btn.disabled = false }
@@ -1102,8 +1102,8 @@ function renderRcOrders(rows = []) {
     // When order is ready for pickup, allow staff/admin to track driver's live location
     if (o.status === 'ReadyForPickup') {
       const trackBtn = document.createElement('button')
-      trackBtn.textContent = 'Track Driver'
-      trackBtn.title = 'Open live driver location for this order'
+      trackBtn.textContent = 'Rastrear repartidor'
+      trackBtn.title = 'Abrir ubicación en vivo del repartidor para este pedido'
       trackBtn.addEventListener('click', () => trackOrder(o.id))
       li.appendChild(trackBtn)
     }
@@ -1183,12 +1183,12 @@ els.logoutBtn.addEventListener('click', async () => {
       stopDeliveryLocation()
       delUnread = 0
       updateDeliveryBadge()
-      say('Logged out')
+      say('Sesión cerrada')
     } else {
-      say(`Logout failed: ${r.status} ${r.data.error || ''}`)
+      say(`Cerrar sesión falló: ${r.status} ${r.data.error || ''}`)
     }
   } catch (e) {
-    log(`logout error: ${e.message}`)
+    log(`error cerrar sesión: ${e.message}`)
   }
 })
 
@@ -1198,16 +1198,16 @@ try {
   if (!onboarded) {
     say('Welcome to Marshanta!')
     say('How to order: 1) Load restaurants, 2) Pick a restaurant and add items, 3) Place order, 4) Pay and track delivery.')
-    say('Create an account or login to continue.')
+    say('Crea una cuenta o inicia sesión para continuar.')
     localStorage.setItem('onboarded', '1')
   } else {
     const lastEmail = localStorage.getItem(userEmailKey)
-    if (lastEmail) say(`Welcome back, ${lastEmail}!`)
-    else say('Welcome back!')
+    if (lastEmail) say(`¡Bienvenido de nuevo, ${lastEmail}!`)
+    else say('¡Bienvenido de nuevo!')
   }
 } catch (_) {
   // storage may be unavailable; proceed without persistence
-  say('Welcome to Marshanta!')
+  say('¡Bienvenido a Marshanta!')
 }
 
 // Register service worker
