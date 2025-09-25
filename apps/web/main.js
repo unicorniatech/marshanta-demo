@@ -20,6 +20,16 @@ const els = {
   apiBaseInput: document.getElementById('apiBaseInput'),
   setApiBaseBtn: document.getElementById('setApiBaseBtn'),
   clearApiBaseBtn: document.getElementById('clearApiBaseBtn'),
+  // Auth modal elements
+  authOverlay: document.getElementById('authOverlay'),
+  authClose: document.getElementById('authClose'),
+  tabLogin: document.getElementById('tabLogin'),
+  tabSignup: document.getElementById('tabSignup'),
+  authEmail: document.getElementById('authEmail'),
+  authPassword: document.getElementById('authPassword'),
+  authRoleRow: document.getElementById('authRoleRow'),
+  authLoginBtn: document.getElementById('authLoginBtn'),
+  authSignupBtn: document.getElementById('authSignupBtn'),
   roleBadge: document.getElementById('roleBadge'),
   loadRestaurantsBtn: document.getElementById('loadRestaurantsBtn'),
   restaurantsList: document.getElementById('restaurantsList'),
@@ -97,6 +107,79 @@ els.installBtn.addEventListener('click', async () => {
   els.installBtn.hidden = true
 })
 
+// ---------- Auth Modal wiring ----------
+let authMode = 'login' // 'login' | 'signup'
+let signupRole = 'client'
+function showAuth(mode = 'login') {
+  authMode = mode
+  if (els.tabLogin && els.tabSignup) {
+    els.tabLogin.classList.toggle('active', mode === 'login')
+    els.tabSignup.classList.toggle('active', mode === 'signup')
+  }
+  if (els.authRoleRow) els.authRoleRow.style.display = mode === 'signup' ? '' : 'none'
+  if (els.authOverlay) { els.authOverlay.style.display = 'flex'; els.authOverlay.setAttribute('aria-hidden', 'false') }
+}
+function hideAuth() {
+  if (els.authOverlay) { els.authOverlay.style.display = 'none'; els.authOverlay.setAttribute('aria-hidden', 'true') }
+}
+function selectSignupRole(role) {
+  signupRole = role
+  document.querySelectorAll('.chip[data-role]')?.forEach(ch => ch.classList.toggle('selected', ch.getAttribute('data-role') === role))
+}
+// Tabs
+els.tabLogin?.addEventListener('click', () => showAuth('login'))
+els.tabSignup?.addEventListener('click', () => showAuth('signup'))
+els.authClose?.addEventListener('click', hideAuth)
+// Role chips
+document.querySelectorAll('.chip[data-role]')?.forEach(ch => {
+  ch.addEventListener('click', () => selectSignupRole(ch.getAttribute('data-role')))
+})
+selectSignupRole('client')
+// Auth buttons
+els.authLoginBtn?.addEventListener('click', async () => {
+  const email = (els.authEmail?.value || '').trim()
+  const password = els.authPassword?.value || ''
+  if (!email) return say('Please enter your email.')
+  if (!password) return say('Please enter your password.')
+  const r = await api('/auth/login', { method: 'POST', body: { email, password } })
+  if (r.ok && r.data.token) {
+    localStorage.setItem(tokenKey, r.data.token)
+    const me = await api('/me')
+    if (me.ok) {
+      try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
+      try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
+      say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
+      updateRoleUI(); startRcAuto(); if (currentRole === 'admin') { await loadAdmin() }
+      hideAuth()
+    }
+  } else {
+    say(`Login failed: ${r.status} ${r.data.error || ''}`)
+  }
+})
+els.authSignupBtn?.addEventListener('click', async () => {
+  const email = (els.authEmail?.value || '').trim()
+  const password = els.authPassword?.value || ''
+  const role = signupRole
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Please enter a valid email.')
+  if (!password || password.length < 6) return say('Password must be at least 6 characters.')
+  const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
+  if (r.ok) {
+    say(`Registered ${r.data.email || email} — now login`)
+    showAuth('login')
+  } else {
+    say(`Register failed: ${r.status} ${r.data.error || ''}`)
+  }
+})
+
+// Auto-open auth for guests on first load
+try {
+  const token = localStorage.getItem(tokenKey)
+  if (!token) {
+    // Show login by default
+    setTimeout(() => showAuth('login'), 50)
+  }
+} catch (_) {}
+
 function log(msg) {
   els.log.textContent += `\n${msg}`
 }
@@ -150,6 +233,12 @@ function updateRoleUI() {
         delUnread = 0
         updateDeliveryBadge()
       }
+    }
+
+    // Restaurant Console (staff/admin only)
+    const rcSection = document.getElementById('rcSection')
+    if (rcSection) {
+      rcSection.style.display = isStaff() ? '' : 'none'
     }
 
     const rcRestaurantEl = document.getElementById('rcRestaurant')

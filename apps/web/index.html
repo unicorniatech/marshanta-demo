@@ -34,9 +34,46 @@
       .chat { min-height: 140px; }
       .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
       #map { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid #1f2937; }
+      /* Auth Modal */
+      .auth-overlay { position: fixed; inset: 0; background: radial-gradient(1200px 600px at 20% 10%, rgba(14,165,233,0.25), transparent 60%), radial-gradient(1200px 600px at 80% 90%, rgba(34,197,94,0.25), transparent 60%), linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.95)); display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px); z-index: 1000; }
+      .auth-card { width: 92%; max-width: 480px; background: rgba(15,23,42,0.9); border: 1px solid #1f2937; border-radius: 16px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+      .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+      .tab { flex: 1; text-align: center; padding: 10px; border-radius: 10px; background: #0b1220; color: var(--fg); border:1px solid #1f2937; cursor: pointer; }
+      .tab.active { background:#0ea5e9; color:#081018; border-color:#0284c7; font-weight: 700; }
+      .role-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+      .chip { padding:6px 10px; border-radius:999px; border:1px solid #334155; background:#0b1220; color:var(--fg); cursor:pointer; font-size:12px; }
+      .chip.selected { background:#0ea5e9; color:#081018; border-color:#0284c7; font-weight:700; }
+      .auth-actions { display:flex; gap:8px; margin-top:12px; }
+      .auth-close { position:absolute; top:16px; right:16px; background:transparent; color:#e2e8f0; border:1px solid #334155; }
     </style>
   </head>
   <body>
+    <!-- Auth Modal -->
+    <div id="authOverlay" class="auth-overlay" aria-hidden="true">
+      <button id="authClose" class="auth-close">✕</button>
+      <div class="auth-card">
+        <div class="tabs">
+          <button id="tabLogin" class="tab active">Login</button>
+          <button id="tabSignup" class="tab">Sign up</button>
+        </div>
+        <div class="row">
+          <input id="authEmail" type="email" placeholder="email" style="flex:1; min-width:240px" />
+          <input id="authPassword" type="password" placeholder="password" style="flex:1; min-width:160px" />
+        </div>
+        <div id="authRoleRow" class="role-chips" style="display:none">
+          <span class="muted">I am:</span>
+          <button class="chip" data-role="client">Client</button>
+          <button class="chip" data-role="staff">Staff</button>
+          <button class="chip" data-role="delivery">Delivery</button>
+          <button class="chip" data-role="admin">Admin</button>
+        </div>
+        <div class="auth-actions">
+          <button id="authLoginBtn" style="flex:1">Login</button>
+          <button id="authSignupBtn" style="flex:1">Create Account</button>
+        </div>
+        <p class="muted" style="margin-top:8px">Tip: Choose a role on Sign up. On device builds, set API Base to your Mac IP first.</p>
+      </div>
+    </div>
     <header>
       <div>Marshanta — PWA Onboarding (Sprint 1)</div>
       <div class="badge" id="roleBadge">role: guest</div>
@@ -129,7 +166,7 @@
         <ul id="ordersList"></ul>
       </section>
 
-      <section class="card">
+      <section class="card" id="rcSection">
         <h3>Restaurant Console</h3>
         <div class="row">
           <select id="rcRestaurant"></select>
