@@ -7,11 +7,13 @@ import { authGuard, requireRole } from '../lib/auth.js'
 export const ordersRouter = express.Router()
 
 // POST /orders - create order
-ordersRouter.post('/', async (req, res) => {
+ordersRouter.post('/', authGuard, async (req, res) => {
   try {
     const { restaurantId, items } = req.body || {}
     if (!restaurantId || !Array.isArray(items)) return res.status(400).json({ error: 'restaurantId and items required' })
-    const order = await createOrder({ restaurantId, items })
+    // Attach userId from the authenticated token
+    const userId = req.user?.id || null
+    const order = await createOrder({ restaurantId, items, userId })
     // Notify admins
     emitAdminEvent({ type: 'new_order', orderId: order.id, restaurantId: order.restaurantId, message: 'New order created' })
     res.status(201).json({ order })
@@ -21,10 +23,18 @@ ordersRouter.post('/', async (req, res) => {
 })
 
 // GET /orders - list
-ordersRouter.get('/', async (req, res) => {
+ordersRouter.get('/', authGuard, async (req, res) => {
   const rows = await listOrders()
   const rid = req.query.restaurantId ? Number(req.query.restaurantId) : null
-  const filtered = rid ? rows.filter(o => o.restaurantId === rid) : rows
+  // If caller is authenticated as client, filter to their orders only
+  const userId = req.user?.id ? Number(req.user.id) : null
+  let filtered = rows
+  if (rid) filtered = filtered.filter(o => o.restaurantId === rid)
+  // Only restrict for non-staff/admin roles
+  const role = req.user?.role || 'guest'
+  if (role === 'client' && userId) {
+    filtered = filtered.filter(o => Number(o.userId || 0) === userId)
+  }
   res.json({ orders: filtered })
 })
 

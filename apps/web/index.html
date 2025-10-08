@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Marshanta</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="theme-color" content="#2E5E2A" />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -13,11 +13,27 @@
       crossorigin=""
     />
     <style>
-      :root { --bg:#0b1220; --card:#0f172a; --fg:#e2e8f0; --muted:#93c5fd; }
+      :root {
+        /* Brand (from logo) */
+        --brand-primary:#2E5E2A; /* dark green */
+        --brand-secondary:#F0B15B; /* mustard */
+        --brand-accent:#7A3E7A; /* grape */
+        --brand-warm:#F0902C; /* carrot */
+        /* Theme */
+        --bg:#0b1220;
+        --card:#0f172a;
+        --fg:#e2e8f0;
+        --muted:#b9c2d0;
+      }
       * { box-sizing: border-box; }
       body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background: var(--bg); color: var(--fg); }
-      header { padding: 16px 20px; background: #0ea5e9; color:#081018; font-weight: 700; display:flex; align-items:center; justify-content:space-between; gap:12px; }
-      .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#081018; color:#0ea5e9; border:1px solid #0284c7; }
+      header { padding: 12px 16px; background: var(--brand-secondary); color:#1b2a1b; font-weight: 800; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom: 2px solid rgba(0,0,0,0.05); }
+      .brand { display:flex; align-items:center; gap:10px; }
+      .brand img { width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.25)); }
+      .brand .title { font-size: 18px; color: var(--brand-primary); letter-spacing: 0.2px; }
+      .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#081018; color:var(--brand-secondary); border:1px solid rgba(240,177,91,0.6); }
+      .badge.ok { background:#0a1a0a; color:#a7f3d0; border-color: rgba(34,197,94,0.5); }
+      .badge.bad { background:#1a0a0a; color:#fecaca; border-color: rgba(239,68,68,0.5); }
       .status { margin-left:8px; }
       .status-Submitted { background:#0b1220; color:#93c5fd; border-color:#334155; }
       .status-Accepted { background:#0b1220; color:#a3e635; border-color:#3f6212; }
@@ -27,7 +43,9 @@
       .pay-Paid, .pay-Succeeded { background:#0b1220; color:#34d399; border-color:#065f46; }
       main { max-width: 800px; margin: 24px auto; padding: 0 16px; }
       .card { background: rgba(15,23,42,0.75); backdrop-filter: blur(10px); border: 1px solid rgba(148,163,184,0.08); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
-      button { background:#0ea5e9; color:#081018; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
+      button { background:var(--brand-primary); color:#f1f5f9; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; box-shadow: 0 4px 14px rgba(46,94,42,0.25); transition: transform .15s ease, box-shadow .2s ease, background .2s ease; }
+      button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(46,94,42,0.35); }
+      button:active { transform: translateY(0); box-shadow: 0 2px 10px rgba(46,94,42,0.25); }
       input { padding:10px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--fg); }
       .row { display:flex; gap:8px; flex-wrap:wrap; }
       .muted { color: var(--muted); font-size: 12px; }
@@ -35,18 +53,34 @@
       .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
       #map { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid #1f2937; }
       /* Auth Modal */
-      .auth-overlay { position: fixed; inset: 0; background: radial-gradient(1200px 600px at 20% 10%, rgba(14,165,233,0.25), transparent 60%), radial-gradient(1200px 600px at 80% 90%, rgba(34,197,94,0.25), transparent 60%), linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.95)); display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px); z-index: 1000; }
+      .auth-overlay { position: fixed; inset: 0; background: radial-gradient(1200px 600px at 20% 10%, rgba(240,177,91,0.25), transparent 60%), radial-gradient(1200px 600px at 80% 90%, rgba(46,94,42,0.25), transparent 60%), linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.95)); display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px); z-index: 1000; }
       .auth-card { width: 92%; max-width: 480px; background: rgba(15,23,42,0.9); border: 1px solid #1f2937; border-radius: 16px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
       .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
       .tab { flex: 1; text-align: center; padding: 10px; border-radius: 10px; background: #0b1220; color: var(--fg); border:1px solid #1f2937; cursor: pointer; }
-      .tab.active { background:#0ea5e9; color:#081018; border-color:#0284c7; font-weight: 700; }
+      .tab.active { background:var(--brand-primary); color:#f1f5f9; border-color:rgba(46,94,42,0.65); font-weight: 700; }
       .role-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
       .chip { padding:6px 10px; border-radius:999px; border:1px solid #334155; background:#0b1220; color:var(--fg); cursor:pointer; font-size:12px; }
-      .chip.selected { background:#0ea5e9; color:#081018; border-color:#0284c7; font-weight:700; }
+      .chip.selected { background:var(--brand-secondary); color:#1b2a1b; border-color:rgba(240,177,91,0.65); font-weight:700; }
       .auth-actions { display:flex; gap:8px; margin-top:12px; }
       .auth-close { position:absolute; top:16px; right:16px; background:transparent; color:#e2e8f0; border:1px solid #334155; }
       /* Marketing */
-      .hero { position: relative; overflow: hidden; border-radius: 20px; padding: 24px; background: linear-gradient(135deg, rgba(14,165,233,0.28), rgba(34,197,94,0.22)); border:1px solid rgba(148,163,184,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.45); backdrop-filter: blur(12px); }
+      .hero { position: relative; overflow: hidden; border-radius: 20px; padding: 28px; background: linear-gradient(120deg, rgba(240,177,91,0.85), rgba(240,177,91,0.65) 50%, rgba(46,94,42,0.25)); border:1px solid rgba(148,163,184,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.45); backdrop-filter: blur(12px); }
+      .hero .content { position: relative; z-index: 1; }
+      .hero::after { content: ""; position:absolute; inset:-20%; background: radial-gradient(600px 300px at 80% 10%, rgba(122,62,122,0.12), transparent 60%), radial-gradient(500px 260px at 0% 90%, rgba(240,144,44,0.12), transparent 60%); pointer-events:none; }
+      .hero .row { margin-top: 12px; }
+      .hero h2 { margin: 0 0 8px 0; color:#102410; font-weight: 900; letter-spacing: .2px; }
+      .hero p { margin: 0 0 12px 0; color: #2C3A2C; }
+      .hero .cta-secondary { background:#0b1220; color:var(--fg); border:1px solid rgba(46,94,42,0.5) }
+      .hero .hero-media { position:absolute; top:10px; right:10px; opacity: .18; z-index: 0; pointer-events: none; }
+      .hero .hero-media img { width: 80px; height: 80px; object-fit: contain; }
+      /* Click affordance */
+      #serverStatus { cursor: pointer; }
+
+      /* Marketing sections */
+      .section-title { font-size: 20px; font-weight:800; color:#eaf1e8; margin: 8px 0 6px; }
+      .testimonials, .faq { display:grid; gap:10px; }
+      .quote { background: rgba(2,6,23,0.6); border:1px solid rgba(240,177,91,0.2); border-radius:14px; padding:12px; }
+      .faq .q { font-weight:700; }
       .hero h2 { margin: 0 0 8px 0; }
       .hero p { margin: 0 0 12px 0; color: var(--muted); }
       .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
@@ -80,6 +114,22 @@
         </div>
       </div>
     </div>
+    <!-- API Modal (standalone) -->
+    <div id="apiOverlay" class="api-overlay" aria-hidden="true">
+      <div class="api-card">
+        <h3>Configurar API</h3>
+        <p class="muted">Ingresa la URL base de tu API. En iPhone usa la IP de tu computadora, por ejemplo: <code>http://192.168.1.70:4000</code></p>
+        <div class="row" style="margin-top:8px">
+          <input id="apiModalInput" type="text" placeholder="http://192.168.1.70:4000" style="flex:1; min-width:260px" />
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="apiModalSave">Guardar</button>
+          <button id="apiModalClear" class="cta-secondary">Borrar</button>
+          <button id="apiModalTest" class="cta-secondary">Probar API</button>
+          <button id="apiModalClose" class="cta-secondary" style="margin-left:auto">Cerrar</button>
+        </div>
+      </div>
+    </div>
     <!-- Auth Modal -->
     <div id="authOverlay" class="auth-overlay" aria-hidden="true">
       <button id="authClose" class="auth-close">✕</button>
@@ -107,12 +157,19 @@
       </div>
     </div>
     <header>
-      <div>Marshanta — Tu comida favorita, a tu puerta</div>
-      <div class="badge" id="roleBadge">rol: invitado</div>
+      <div class="brand">
+        <img src="/brand/logo-temp.svg" alt="Marshanta" />
+        <div class="title">Marshanta — Tu comida favorita, a tu puerta</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center">
+        <div class="badge" id="serverStatus" title="Toca para configurar o revisar la API">api: desconocido</div>
+        <button id="apiOpenBtn" class="cta-secondary" title="Abrir configuración de API">Configurar API</button>
+        <div class="badge" id="roleBadge">rol: invitado</div>
+      </div>
     </header>
     <main>
       <!-- Marketing (Cliente) -->
-      <section class="card" id="marketingSection" style="display:none">
+      <section class="card" id="marketingSection">
         <div class="hero">
           <h2>Pide comida a tu manera</h2>
           <p>Explora menús, ordena en segundos y rastrea a tu repartidor en tiempo real.</p>
@@ -120,15 +177,16 @@
             <button id="mkStartOrderBtn">Empieza tu pedido</button>
             <button id="mkHowItWorksBtn" style="background:#0b1220; color:var(--fg); border:1px solid #334155">¿Cómo funciona?</button>
           </div>
+          <div class="hero-media"><img src="/brand/logo-temp.svg" alt="Logo" /></div>
         </div>
         <div style="height:12px"></div>
         <div class="gallery">
-          <img alt="Tacos" src="https://images.unsplash.com/photo-1601924582971-b0c5be3a5c9a?q=80&w=800&auto=format&fit=crop" />
-          <img alt="Hamburguesa" src="https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop" />
-          <img alt="Pizza" src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=800&auto=format&fit=crop" />
-          <img alt="Sushi" src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop" />
-          <img alt="Ensalada" src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800&auto=format&fit=crop" />
-          <img alt="Postre" src="https://images.unsplash.com/photo-1551024709-8f23befc6cf7?q=80&w=800&auto=format&fit=crop" />
+          <img alt="Tacos" src="https://images.unsplash.com/photo-1601924582971-b0c5be3a5c9a?q=80&w=800&auto=format&fit=crop" onerror="this.onerror=null;this.src='/marketing/ph1.svg'" />
+          <img alt="Hamburguesa" src="https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=800&auto=format&fit=crop" onerror="this.onerror=null;this.src='/marketing/ph2.svg'" />
+          <img alt="Pizza" src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=800&auto=format&fit=crop" onerror="this.onerror=null;this.src='/marketing/ph3.svg'" />
+          <img alt="Sushi" src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop" onerror="this.onerror=null;this.src='/marketing/ph4.svg'" />
+          <img alt="Ensalada" src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800&auto=format&fit=crop" onerror="this.onerror=null;this.src='/marketing/ph5.svg'" />
+          <img alt="Postre" src="https://images.unsplash.com/photo-1551024709-8f23befc6cf7?q=80&w=800&auto=format&fit=crop" onerror="this.onerror=null;this.src='/marketing/ph6.svg'" />
         </div>
         <div style="height:12px"></div>
         <div class="grid">
@@ -138,7 +196,7 @@
           <div class="feature"><strong>Negocios locales</strong><p class="muted">Apoya a tu comunidad.</p></div>
         </div>
       </section>
-      <section class="card" data-reveal>
+      <section class="card" id="installSection" data-reveal>
         <h3>Instalar</h3>
         <p class="muted">Agrega a la pantalla de inicio para una mejor experiencia.</p>
         <button id="installBtn" hidden>Instalar app</button>
@@ -166,7 +224,7 @@
         <p class="muted">Acciones: Acepta una asignación, luego marca Recogido y Entregado. Activa compartir ubicación para enviar tu posición durante el servicio.</p>
       </section>
 
-      <section class="card">
+      <section class="card" id="welcomeSection">
         <h3>Bienvenido</h3>
         <div id="chat" class="chat"></div>
         <div class="row">
@@ -295,7 +353,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="debugSection">
         <h3>Debug</h3>
         <div id="log" class="log"></div>
       </section>

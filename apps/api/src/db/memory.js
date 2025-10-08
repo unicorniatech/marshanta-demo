@@ -53,7 +53,7 @@ export async function getLatestLocationForOrder(orderId) {
 const restaurants = [] // { id, name, address, phone }
 const menus = new Map() // restaurantId -> [{ id, name, priceCents }]
 const deliveryPartners = [] // { id, name, phone, vehicleType }
-const orders = [] // { id, restaurantId, items: [{ itemId, name, priceCents, qty }], status, paymentStatus, createdAt }
+const orders = [] // { id, userId?: number, restaurantId, items: [{ itemId, name, priceCents, qty }], status, paymentStatus, createdAt }
 const paymentReceipts = [] // { id, orderId, provider, amountCents, currency, raw }
 const processedPaymentEvents = new Set() // eventId strings
 const assignments = [] // { id, orderId, partnerId, status, createdAt, updatedAt }
@@ -142,7 +142,7 @@ const allowedTransitions = {
   [OrderStatus.ReadyForPickup]: []
 }
 
-export async function createOrder({ restaurantId, items }) {
+export async function createOrder({ restaurantId, items, userId: uid }) {
   const r = restaurants.find(r => r.id === Number(restaurantId))
   if (!r) throw new Error('Invalid restaurant')
   const normalized = (items || []).map(it => ({
@@ -152,7 +152,7 @@ export async function createOrder({ restaurantId, items }) {
     qty: Number(it.qty) || 1
   })).filter(it => it.qty > 0)
   if (!normalized.length) throw new Error('No items')
-  const o = { id: orderId++, restaurantId: r.id, items: normalized, status: OrderStatus.Submitted, paymentStatus: 'Unpaid', createdAt: Date.now() }
+  const o = { id: orderId++, userId: uid ? Number(uid) : null, restaurantId: r.id, items: normalized, status: OrderStatus.Submitted, paymentStatus: 'Unpaid', createdAt: Date.now() }
   orders.push(o)
   return { ...o }
 }

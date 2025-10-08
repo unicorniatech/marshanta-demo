@@ -1,8 +1,28 @@
 /* global L */
-const apiBase = localStorage.getItem('apiBase') || (location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? 'http://localhost:4000' : '')
+let apiBase = localStorage.getItem('apiBase') || (location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? 'http://localhost:4000' : '')
 const tokenKey = 'authToken'
 const userEmailKey = 'lastUserEmail'
 const userRoleKey = 'lastUserRole'
+
+// Basic API helper used across the app
+async function api(path, opts = {}) {
+  const url = `${(apiBase || '').replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`
+  const headers = { 'Content-Type': 'application/json' }
+  const token = localStorage.getItem(tokenKey)
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  try {
+    const res = await fetch(url, {
+      method: opts.method || 'GET',
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    })
+    const ct = res.headers.get('content-type') || ''
+    const data = ct.includes('application/json') ? await res.json().catch(()=>({})) : await res.text().catch(()=>(''))
+    return { ok: res.ok, status: res.status, data }
+  } catch (e) {
+    return { ok: false, status: 0, data: { error: e?.message || String(e) } }
+  }
+}
 
 const els = {
   installBtn: document.getElementById('installBtn'),
@@ -37,6 +57,13 @@ const els = {
   howCloseBtn: document.getElementById('howCloseBtn'),
   howSignupBtn: document.getElementById('howSignupBtn'),
   roleBadge: document.getElementById('roleBadge'),
+  // API modal elements
+  apiOverlay: document.getElementById('apiOverlay'),
+  apiModalInput: document.getElementById('apiModalInput'),
+  apiModalSave: document.getElementById('apiModalSave'),
+  apiModalClear: document.getElementById('apiModalClear'),
+  apiModalClose: document.getElementById('apiModalClose'),
+  // Core UI lists/buttons
   loadRestaurantsBtn: document.getElementById('loadRestaurantsBtn'),
   restaurantsList: document.getElementById('restaurantsList'),
   menuHeader: document.getElementById('menuHeader'),
@@ -46,6 +73,8 @@ const els = {
   clearCartBtn: document.getElementById('clearCartBtn'),
   reviewOrderBtn: document.getElementById('reviewOrderBtn'),
   placeOrderBtn: document.getElementById('placeOrderBtn'),
+  ordersList: document.getElementById('ordersList'),
+  refreshOrdersBtn: document.getElementById('refreshOrdersBtn'),
   trackingOrder: document.getElementById('trackingOrder'),
   trackingStatus: document.getElementById('trackingStatus'),
   trackingCoords: document.getElementById('trackingCoords'),
@@ -64,6 +93,7 @@ els.setApiBaseBtn?.addEventListener('click', () => {
     const u = new URL(v)
     if (!u.protocol.startsWith('http')) throw new Error('Invalid protocol')
     localStorage.setItem('apiBase', v)
+    try { updateServerStatus() } catch (_) {}
     location.reload()
   } catch (e) {
     alert('Invalid URL for API base')
@@ -71,10 +101,28 @@ els.setApiBaseBtn?.addEventListener('click', () => {
 })
 els.clearApiBaseBtn?.addEventListener('click', () => {
   localStorage.removeItem('apiBase')
+  try { updateServerStatus() } catch (_) {}
   location.reload()
 })
-// Initialize role UI badge and RC controls on load
-updateRoleUI()
+// Global error surface (helps detect early JS errors on device)
+window.addEventListener('error', (e) => {
+  try { console.error('JS error:', e?.message || e) } catch(_) {}
+})
+
+// Initialize role UI badge and RC controls when DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    updateRoleUI();
+    updateInstallVisibility();
+    // Ensure API modal wiring after DOM is ready
+    const ss = document.getElementById('serverStatus')
+    if (ss) ss.addEventListener('click', () => openApiModal())
+    // If no apiBase set and running in Capacitor, auto-prompt API modal
+    if ((!apiBase || apiBase.trim() === '') && isNativeApp()) {
+      openApiModal()
+    }
+  } catch (_) {}
+})
 
 let deferredPrompt
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -125,6 +173,7 @@ els.authLoginBtn?.addEventListener('click', async () => {
   const password = els.authPassword?.value || ''
   if (!email) return say('Por favor ingresa tu correo electrónico.')
   if (!password) return say('Por favor ingresa tu contraseña.')
+  if (!apiBase) { say('Configura la API Base (IP de tu computadora) en la sección Bienvenido.'); try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {} return }
   const r = await api('/auth/login', { method: 'POST', body: { email, password } })
   if (r.ok && r.data.token) {
     localStorage.setItem(tokenKey, r.data.token)
@@ -137,7 +186,12 @@ els.authLoginBtn?.addEventListener('click', async () => {
       hideAuth()
     }
   } else {
-    say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
+    if (r.status === 0) {
+      say('No se pudo conectar con la API. Verifica la API Base e internet.')
+      try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {}
+    } else {
+      say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
+    }
   }
 })
 els.authSignupBtn?.addEventListener('click', async () => {
@@ -146,23 +200,88 @@ els.authSignupBtn?.addEventListener('click', async () => {
   const role = signupRole
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Ingresa un correo válido.')
   if (!password || password.length < 6) return say('La contraseña debe tener al menos 6 caracteres.')
+  if (!apiBase) {say('Configura la API Base (IP de tu computadora) en la sección Bienvenido.'); try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {} return }
   const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
   if (r.ok) {
-    say(`Registro exitoso para ${r.data.email || email} — ahora inicia sesión`)
+    try { localStorage.setItem(userEmailKey, r.data.email || email) } catch (_) {}
+    say('Cuenta creada. Ahora inicia sesión.')
     showAuth('login')
   } else {
-    say(`Registro fallido: ${r.status} ${r.data.error || ''}`)
+    if (r.status === 0) {
+      say('No se pudo conectar con la API. Verifica la API Base e internet.')
+      try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {}
+    } else {
+      say(`Registro fallido: ${r.status} ${r.data.error || ''}`)
+    }
   }
 })
 
-// Auto-open auth for guests on first load
+// Do not auto-open auth for guests; let Marketing drive conversions
 try {
   const token = localStorage.getItem(tokenKey)
   if (!token) {
-    // Show login by default
-    setTimeout(() => showAuth('login'), 50)
+    // Clear any stale role so marketing is visible on device even after previous sessions
+    try { localStorage.removeItem(userRoleKey) } catch (_) {}
   }
 } catch (_) {}
+
+// ---------- API Modal wiring ----------
+function openApiModal() {
+  try {
+    if (!els.apiOverlay) return
+    if (els.apiModalInput) els.apiModalInput.value = localStorage.getItem('apiBase') || ''
+    els.apiOverlay.style.display = 'flex'
+    els.apiOverlay.setAttribute('aria-hidden', 'false')
+  } catch (_) {}
+}
+function closeApiModal() {
+  if (!els.apiOverlay) return
+  els.apiOverlay.style.display = 'none'
+  els.apiOverlay.setAttribute('aria-hidden', 'true')
+}
+els.apiModalSave?.addEventListener('click', () => {
+  const v = (els.apiModalInput?.value || '').trim()
+  if (!v) { alert('Ingresa una URL válida, p.ej. http://192.168.1.70:4000'); return }
+  try {
+    const u = new URL(v)
+    if (!u.protocol.startsWith('http')) throw new Error('Invalid protocol')
+    localStorage.setItem('apiBase', v)
+    apiBase = v
+    updateServerStatus().catch(()=>{})
+    closeApiModal()
+  } catch (e) {
+    alert('URL inválida para el API Base')
+  }
+})
+els.apiModalClear?.addEventListener('click', () => {
+  localStorage.removeItem('apiBase')
+  apiBase = ''
+  updateServerStatus().catch(()=>{})
+  closeApiModal()
+})
+els.apiModalClose?.addEventListener('click', () => closeApiModal())
+// Fallback: delegate click in case element was not present at parse time
+document.addEventListener('click', (e) => {
+  const t = e.target
+  if (t && t.id === 'serverStatus') openApiModal()
+})
+// Header button also opens API modal
+document.getElementById('apiOpenBtn')?.addEventListener('click', () => openApiModal())
+// Add test button to verify connectivity
+document.getElementById('apiModalTest')?.addEventListener('click', async () => {
+  try {
+    const v = (els.apiModalInput?.value || '').trim() || apiBase
+    if (!v) { alert('Primero ingresa la URL del API'); return }
+    const url = `${v.replace(/\/$/, '')}/health`
+    const res = await fetch(url)
+    const json = await res.json().catch(()=>({}))
+    alert(`GET ${url}\nstatus: ${res.status}\nbody: ${JSON.stringify(json)}`)
+  } catch (e) {
+    alert(`Error de red: ${(e && e.message) || e}`)
+  }
+})
+// Expose opener for any external trigger if needed
+try { window.openApiModal = openApiModal } catch(_) {}
 
 // ---------- Marketing wiring ----------
 function showHow() {
@@ -192,6 +311,37 @@ try {
   document.querySelectorAll('[data-reveal]')?.forEach(el => io.observe(el))
 } catch(_) {}
 
+// ---------- API health badge ----------
+async function updateServerStatus() {
+  try {
+    const el = document.getElementById('serverStatus')
+    if (!el) return
+    if (!apiBase) {
+      el.textContent = 'api: configurar'
+      el.classList.remove('ok')
+      el.classList.add('bad')
+      return
+    }
+    el.textContent = 'api: comprobando…'
+    el.classList.remove('ok', 'bad')
+    const r = await api('/health')
+    if (r.ok && r.data && (r.data.ok || r.status === 200)) {
+      el.textContent = 'api: en línea'
+      el.classList.add('ok')
+    } else if (r.status === 0) {
+      el.textContent = 'api: sin conexión'
+      el.classList.add('bad')
+    } else {
+      el.textContent = `api: error ${r.status}`
+      el.classList.add('bad')
+    }
+  } catch (_) {
+    const el = document.getElementById('serverStatus')
+    if (el) { el.textContent = 'api: sin conexión'; el.classList.add('bad') }
+  }
+}
+updateServerStatus()
+
 function log(msg) {
   els.log.textContent += `\n${msg}`
 }
@@ -206,7 +356,12 @@ function say(msg) {
 let selectedRestaurant = null
 let cart = [] // [{ restaurantId, itemId, name, priceCents, qty }]
 let lastMenuItems = []
-let currentRole = (localStorage.getItem(userRoleKey) || '').toLowerCase()
+// If there is no token, treat as guest regardless of any stored role
+let currentRole = ''
+try {
+  const hasToken = !!localStorage.getItem(tokenKey)
+  currentRole = (hasToken && apiBase) ? (localStorage.getItem(userRoleKey) || '').toLowerCase() : ''
+} catch (_) { currentRole = '' }
 
 function isStaff() {
   return currentRole === 'staff' || currentRole === 'admin'
@@ -253,13 +408,22 @@ function updateRoleUI() {
       rcSection.style.display = isStaff() ? '' : 'none'
     }
 
-    // Marketing (client only)
+    // Marketing (guest + client only)
     const marketing = document.getElementById('marketingSection')
     if (marketing) {
-      // Show to guests (no role) and clients; hide for staff/delivery/admin
       const showMk = !currentRole || currentRole === 'client'
       marketing.style.display = showMk ? '' : 'none'
     }
+
+    // Welcome + Debug visibility (hide for guests/clients for a pure marketing landing)
+    const welcome = document.getElementById('welcomeSection')
+    const debug = document.getElementById('debugSection')
+    const isOperationalRole = currentRole === 'staff' || currentRole === 'admin' || currentRole === 'delivery'
+    if (welcome) welcome.style.display = isOperationalRole ? '' : 'none'
+    if (debug) debug.style.display = isOperationalRole ? '' : 'none'
+
+    // Install section visibility: only show on web (not Capacitor/native), not already installed, and only AFTER login (client role)
+    updateInstallVisibility()
 
     const rcRestaurantEl = document.getElementById('rcRestaurant')
     const loadBtn = document.getElementById('rcLoadOrdersBtn')
@@ -291,6 +455,23 @@ function updateRoleUI() {
   } catch (_) {}
 }
 
+function isNativeApp() {
+  try { return !!window.Capacitor } catch (_) { return false }
+}
+
+function isPwaStandalone() {
+  try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true } catch (_) { return false }
+}
+
+function updateInstallVisibility() {
+  const el = document.getElementById('installSection')
+  if (!el) return
+  const loggedIn = !!localStorage.getItem(tokenKey)
+  const installed = isNativeApp() || isPwaStandalone()
+  const show = loggedIn && currentRole === 'client' && !installed
+  el.style.display = show ? '' : 'none'
+}
+
 function formatPrice(cents) {
   const v = (cents || 0) / 100
   return v.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
@@ -301,30 +482,6 @@ function createBadge(text, cls) {
   span.className = `badge ${cls || ''}`.trim()
   span.textContent = text
   return span
-}
-
-async function api(path, { method = 'GET', body } = {}) {
-  if (!apiBase) throw new Error('API base not configured')
-  const headers = { 'Content-Type': 'application/json' }
-  const token = localStorage.getItem(tokenKey)
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(`${apiBase}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined
-  })
-  const data = await res.json().catch(() => ({}))
-  return { ok: res.ok, status: res.status, data }
-}
-
-async function loadRestaurants() {
-  try {
-    const r = await api('/restaurants')
-    if (!r.ok) return say(`No se pudieron cargar los restaurantes (${r.status})`)
-    renderRestaurants(r.data.restaurants)
-  } catch (e) {
-    log(`error restaurantes: ${e.message}`)
-  }
 }
 
 function renderRestaurants(rows = []) {
@@ -403,14 +560,14 @@ function renderCart() {
 
 // ---------- Orders (Story 3.1) ----------
 function summarizeCart() {
-  if (!selectedRestaurant) return 'No restaurant selected.'
-  if (!cart.length) return 'Cart is empty.'
+  if (!selectedRestaurant) return 'Ningún restaurante seleccionado.'
+  if (!cart.length) return 'El carrito está vacío.'
   const lines = cart.map(c => `• ${c.name} x${c.qty} = ${formatPrice(c.priceCents * c.qty)}`)
   const subtotal = cart.reduce((acc, c) => acc + c.priceCents * c.qty, 0)
   const taxes = Math.round(subtotal * 0.08)
   const fees = Math.round(subtotal * 0.03)
   const total = subtotal + taxes + fees
-  return `Order @ ${selectedRestaurant.name}\n${lines.join('\n')}\nSubtotal: ${formatPrice(subtotal)}\nTaxes: ${formatPrice(taxes)}\nFees: ${formatPrice(fees)}\nTotal: ${formatPrice(total)}`
+  return `Pedido @ ${selectedRestaurant.name}\n${lines.join('\n')}\nSubtotal: ${formatPrice(subtotal)}\nImpuestos: ${formatPrice(taxes)}\nComisiones: ${formatPrice(fees)}\nTotal: ${formatPrice(total)}`
 }
 
 async function placeOrder() {
@@ -425,6 +582,8 @@ async function placeOrder() {
       cart = []
       renderCart()
       await refreshOrders()
+      // Scroll to orders section so Pay button is visible
+      try { document.getElementById('ordersList')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
     } else {
       say(`No se pudo realizar el pedido: ${r.status} ${r.data.error || ''}`)
     }
@@ -432,6 +591,29 @@ async function placeOrder() {
     els.placeOrderBtn.disabled = false
   }
 }
+
+// ---------- Payments (mock adapter) ----------
+async function startPaymentFlow(orderId) {
+  if (!orderId) return say('Pedido inválido para pago.')
+  try {
+    say(`Iniciando pago para pedido #${orderId}…`)
+    const intent = await api('/payments/intent', { method: 'POST', body: { orderId } })
+    if (!intent.ok) { say(`No se pudo iniciar el pago: ${intent.status} ${intent.data.error || ''}`); return }
+    const clientSecret = intent.data.clientSecret || intent.data.client_secret || `mock_${orderId}`
+    const confirm = await api('/payments/confirm', { method: 'POST', body: { orderId, clientSecret, outcome: 'succeeded' } })
+    if (!confirm.ok) { say(`No se pudo confirmar el pago: ${confirm.status} ${confirm.data.error || ''}`); return }
+    say(`Pago ${confirm.data.paymentStatus} para pedido #${orderId}.`)
+    // Small delay to allow state propagation in memory adapter
+    await new Promise(r => setTimeout(r, 200))
+    await refreshOrders()
+    // Ensure user sees updated status
+    try { document.getElementById('ordersList')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+  } catch (e) {
+    say(`Error de pago: ${e?.message || e}`)
+  }
+}
+// Ensure globally accessible in case any handler resolves from global scope
+try { window.startPaymentFlow = startPaymentFlow } catch (_) {}
 
 // ---------- Persistence ----------
 function currentUserKey() {
@@ -475,6 +657,10 @@ function renderOrders(rows = []) {
     const st = createBadge(o.status, `status status-${o.status}`)
     st.style.marginLeft = '8px'
     title.appendChild(st)
+    // show payment status badge as well
+    const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
+    pb.style.marginLeft = '6px'
+    title.appendChild(pb)
     li.appendChild(title)
     const items = document.createElement('div')
     items.className = 'muted'
@@ -494,8 +680,13 @@ function renderOrders(rows = []) {
     }
     if (!o.paymentStatus || o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Failed') {
       const payBtn = document.createElement('button')
-      payBtn.textContent = 'Pay'
-      payBtn.addEventListener('click', () => startPaymentFlow(o.id))
+      payBtn.textContent = 'Pagar'
+      payBtn.addEventListener('click', async () => {
+        payBtn.disabled = true
+        const prev = payBtn.textContent
+        payBtn.textContent = 'Pagando…'
+        try { await startPaymentFlow(o.id) } finally { payBtn.textContent = prev; payBtn.disabled = false }
+      })
       li.appendChild(payBtn)
     }
     const track = document.createElement('button')
@@ -538,10 +729,10 @@ let mapMarker = null
 
 function trackOrder(orderId) {
   stopTracking()
-  if (!apiBase) return say('API base not configured')
+  if (!apiBase) return say('API base no configurado')
   trackingId = orderId
   els.trackingOrder.textContent = `#${orderId}`
-  els.trackingStatus.textContent = 'Connecting...'
+  els.trackingStatus.textContent = 'Conectando...'
   els.trackingCoords.textContent = ''
   ensureMap()
   const url = `${apiBase}/tracking/${orderId}/stream`
@@ -550,12 +741,12 @@ function trackOrder(orderId) {
     try {
       const data = JSON.parse(ev.data)
       if (data.type === 'hello') {
-        els.trackingStatus.textContent = `Status: ${data.status}`
+        els.trackingStatus.textContent = `Estatus: ${data.status}`
       } else if (data.type === 'location') {
         els.trackingCoords.textContent = `Lat ${data.lat.toFixed(6)}, Lng ${data.lng.toFixed(6)} @ ${new Date(data.ts).toLocaleTimeString()}`
         updateMap(data.lat, data.lng)
       } else if (data.type === 'complete') {
-        els.trackingStatus.textContent = 'Arrived (simulation complete)'
+        els.trackingStatus.textContent = 'Entregado (simulación completa)'
         stopTracking()
       }
     } catch (_) {
@@ -563,7 +754,7 @@ function trackOrder(orderId) {
     }
   }
   es.onerror = () => {
-    els.trackingStatus.textContent = 'Connection error'
+    els.trackingStatus.textContent = 'Error de conexión'
   }
 }
 
@@ -575,7 +766,7 @@ function stopTracking() {
   if (trackingId) {
     trackingId = null
   }
-  els.trackingStatus.textContent = 'Not tracking.'
+  els.trackingStatus.textContent = 'Sin rastreo.'
   els.trackingOrder.textContent = '—'
   els.trackingCoords.textContent = ''
   resetMap()
@@ -891,11 +1082,22 @@ function startDeliveryLocation() {
   if (currentRole !== 'delivery') return
   const checkbox = document.getElementById('delShareLocation')
   if (!checkbox?.checked) return
+  const pickActiveOrderId = async () => {
+    try {
+      const r = await api('/delivery/assignments')
+      if (!r.ok) return null
+      const rows = r.data.assignments || []
+      // Prefer currently active statuses
+      const preferred = rows.find(a => a.status === 'PickedUp') || rows.find(a => a.status === 'Accepted') || rows.find(a => a.status === 'Assigned')
+      return preferred ? Number(preferred.orderId) : null
+    } catch (_) { return null }
+  }
   const send = async (coords) => {
     try {
       const lat = Number(coords?.latitude ?? 18.936)
       const lng = Number(coords?.longitude ?? -99.223)
-      await api('/delivery/location', { method: 'POST', body: { lat, lng } })
+      const orderId = await pickActiveOrderId()
+      await api('/delivery/location', { method: 'POST', body: { orderId, lat, lng } })
     } catch (_) {}
   }
   if (navigator.geolocation) {
@@ -924,6 +1126,18 @@ els.chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') onCha
 document.getElementById('admRefreshBtn')?.addEventListener('click', () => { loadAdmin().catch(()=>{}) })
 document.getElementById('delRefreshBtn')?.addEventListener('click', () => { loadDeliveryAssignments().catch(()=>{}) })
 document.getElementById('delShareLocation')?.addEventListener('change', () => { if (document.getElementById('delShareLocation').checked) startDeliveryLocation(); else stopDeliveryLocation() })
+
+// ---------- Missing functions (marketing and core) ----------
+async function loadRestaurants() {
+  try {
+    const r = await api('/restaurants')
+    if (!r.ok) { say(`No se pudieron cargar restaurantes (${r.status})`); return }
+    const rows = Array.isArray(r.data) ? r.data : (r.data.restaurants || [])
+    renderRestaurants(rows)
+  } catch (e) {
+    say(`Error al cargar restaurantes: ${e.message}`)
+  }
+}
 
 function onChatSend() {
   const text = (els.chatInput?.value || '').trim()
@@ -1123,17 +1337,16 @@ els.registerBtn.addEventListener('click', async () => {
     const email = els.email.value.trim()
     const password = els.password.value
     const role = (els.role?.value) || 'client'
-    // Basic validation
-    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Please enter a valid email.')
-    if (!password || password.length < 6) return say('Password must be at least 6 characters.')
-    if (!['client','staff','admin'].includes(role)) return say('Invalid role selected.')
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Ingresa un correo válido.')
+    if (!password || password.length < 6) return say('La contraseña debe tener al menos 6 caracteres.')
+    if (!['client','staff','admin'].includes(role)) return say('Rol inválido.')
     const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
     if (r.ok) {
       const emailShown = r.data.email || email
       try { localStorage.setItem(userEmailKey, emailShown) } catch (_) {}
-      say(`Registered ${emailShown}`)
+      say(`Registro exitoso para ${emailShown}. Ahora inicia sesión.`)
     } else {
-      say(`Register failed: ${r.status} ${r.data.error || ''}`)
+      say(`Registro fallido: ${r.status} ${r.data.error || ''}`)
     }
   } catch (e) {
     log(`register error: ${e.message}`)
@@ -1144,25 +1357,21 @@ els.loginBtn.addEventListener('click', async () => {
   try {
     const email = els.email.value.trim()
     const password = els.password.value
-    if (!email) return say('Please enter your email.')
-    if (!password) return say('Please enter your password.')
+    if (!email) return say('Por favor ingresa tu correo electrónico.')
+    if (!password) return say('Por favor ingresa tu contraseña.')
+    if (!apiBase) { say('Configura la API Base (IP de tu computadora) antes de iniciar sesión.'); return }
     const r = await api('/auth/login', { method: 'POST', body: { email, password } })
     if (r.ok && r.data.token) {
       localStorage.setItem(tokenKey, r.data.token)
-      say('Logged in')
       const me = await api('/me')
       if (me.ok) {
         try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
         try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
-        say(`Hello ${me.data.user.email} (role: ${me.data.user.role})`)
-        updateRoleUI()
-        startRcAuto()
-        if (currentRole === 'admin') {
-          await loadAdmin()
-        }
+        say(`Hola ${me.data.user.email} (rol: ${me.data.user.role})`)
+        updateRoleUI(); startRcAuto(); if (currentRole === 'admin') { await loadAdmin() }
       }
     } else {
-      say(`Login failed: ${r.status} ${r.data.error || ''}`)
+      say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
     }
   } catch (e) {
     log(`login error: ${e.message}`)
@@ -1211,6 +1420,9 @@ try {
 }
 
 // Register service worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js').then(() => log('SW registered')).catch(e => log(`SW error: ${e.message}`))
-}
+// Register SW only on web (avoid stale caching on native Capacitor)
+try {
+  if (!isNativeApp() && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').then(() => log('SW registered')).catch(e => log(`SW error: ${e.message}`))
+  }
+} catch (_) {}
