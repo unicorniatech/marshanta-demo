@@ -6,12 +6,20 @@
     <title>Marshanta</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#2E5E2A" />
+    <!-- Fonts: Inter + Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Material Symbols Rounded (for quick icon usage if needed) -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
+    <!-- Tailwind build -->
+    <link rel="stylesheet" href="/src/styles.css" />
     <style>
       :root {
         /* Brand (from logo) */
@@ -97,7 +105,7 @@
       [data-reveal].in { opacity: 1; transform: translateY(0); }
     </style>
   </head>
-  <body>
+  <body class="bg-background text-text-primary">
     <!-- How it works Modal -->
     <div id="howOverlay" class="how-overlay" aria-hidden="true">
       <div class="how-card">
@@ -130,52 +138,52 @@
         </div>
       </div>
     </div>
-    <!-- Auth Modal -->
-    <div id="authOverlay" class="auth-overlay" aria-hidden="true">
-      <button id="authClose" class="auth-close">✕</button>
-      <div class="auth-card">
-        <div class="tabs">
-          <button id="tabLogin" class="tab active">Iniciar sesión</button>
-          <button id="tabSignup" class="tab">Crear cuenta</button>
+    <!-- Auth Modal (Tailwind) -->
+    <div id="authOverlay" class="fixed inset-0 hidden items-center justify-center z-[1000] bg-black/60 backdrop-blur-sm" aria-hidden="true">
+      <button id="authClose" class="absolute top-4 right-4 bg-transparent text-text-inverse border border-border rounded-md px-2 py-1">✕</button>
+      <div class="w-[92%] max-w-[480px] bg-surface border border-border rounded-2xl p-5 shadow-float">
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="tabLogin" class="tab active bg-primary text-white rounded-lg px-4 py-2">Iniciar sesión</button>
+          <button id="tabSignup" class="tab bg-surface border border-border rounded-lg px-4 py-2">Crear cuenta</button>
         </div>
-        <div class="row">
-          <input id="authEmail" type="email" placeholder="correo electrónico" style="flex:1; min-width:240px" />
-          <input id="authPassword" type="password" placeholder="contraseña" style="flex:1; min-width:160px" />
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <input id="authEmail" class="col-span-2 md:col-span-1 border border-border rounded-md px-3 py-2" type="email" placeholder="correo electrónico" />
+          <input id="authPassword" class="col-span-2 md:col-span-1 border border-border rounded-md px-3 py-2" type="password" placeholder="contraseña" />
         </div>
-        <div id="authRoleRow" class="role-chips" style="display:none">
+        <div id="authRoleRow" class="flex flex-wrap items-center gap-2 mt-2" style="display:none">
           <span class="muted">Soy:</span>
-          <button class="chip" data-role="client">Cliente</button>
-          <button class="chip" data-role="staff">Personal</button>
-          <button class="chip" data-role="delivery">Repartidor</button>
-          <button class="chip" data-role="admin">Admin</button>
+          <button class="chip border border-border rounded-full px-3 py-1" data-role="client">Cliente</button>
+          <button class="chip border border-border rounded-full px-3 py-1" data-role="staff">Personal</button>
+          <button class="chip border border-border rounded-full px-3 py-1" data-role="delivery">Repartidor</button>
+          <button class="chip border border-border rounded-full px-3 py-1" data-role="admin">Admin</button>
         </div>
-        <div class="auth-actions">
-          <button id="authLoginBtn" style="flex:1">Entrar</button>
-          <button id="authSignupBtn" style="flex:1">Crear cuenta</button>
+        <div class="flex gap-2 mt-3">
+          <button id="authLoginBtn" class="flex-1 bg-primary text-white rounded-lg px-4 py-2">Entrar</button>
+          <button id="authSignupBtn" class="flex-1 bg-surface border border-border rounded-lg px-4 py-2">Crear cuenta</button>
         </div>
-        <p class="muted" style="margin-top:8px">Tip: Elige tu rol al registrarte. En dispositivos, configura primero el API Base con la IP de tu computadora.</p>
+        <p class="muted mt-2">Tip: Elige tu rol al registrarte. En dispositivos, configura primero el API Base con la IP de tu computadora.</p>
       </div>
     </div>
-    <header>
+    <header class="bg-secondary text-text-primary px-4 py-3 border-b border-border flex items-center justify-between">
       <div class="brand">
         <img src="/brand/logo-temp.svg" alt="Marshanta" />
-        <div class="title">Marshanta — Tu comida favorita, a tu puerta</div>
+        <div class="title text-base font-semibold">Marshanta — Tu comida favorita, a tu puerta</div>
       </div>
-      <div style="display:flex; gap:8px; align-items:center">
+      <div class="flex items-center gap-2">
         <div class="badge" id="serverStatus" title="Toca para configurar o revisar la API">api: desconocido</div>
-        <button id="apiOpenBtn" class="cta-secondary" title="Abrir configuración de API">Configurar API</button>
+        <button id="apiOpenBtn" class="bg-primary text-white rounded-lg px-4 py-2 shadow-md" title="Abrir configuración de API">Configurar API</button>
         <div class="badge" id="roleBadge">rol: invitado</div>
       </div>
     </header>
-    <main>
+    <main class="max-w-[420px] mx-auto p-4 space-y-4">
       <!-- Marketing (Cliente) -->
-      <section class="card" id="marketingSection">
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" id="marketingSection">
         <div class="hero">
           <h2>Pide comida a tu manera</h2>
           <p>Explora menús, ordena en segundos y rastrea a tu repartidor en tiempo real.</p>
           <div class="row">
-            <button id="mkStartOrderBtn">Empieza tu pedido</button>
-            <button id="mkHowItWorksBtn" style="background:#0b1220; color:var(--fg); border:1px solid #334155">¿Cómo funciona?</button>
+            <button id="mkStartOrderBtn" class="bg-primary text-white px-5 py-3 rounded-lg shadow-md">Empieza tu pedido</button>
+            <button id="mkHowItWorksBtn" class="bg-surface text-text-primary border border-border px-5 py-3 rounded-lg">¿Cómo funciona?</button>
           </div>
           <div class="hero-media"><img src="/brand/logo-temp.svg" alt="Logo" /></div>
         </div>
@@ -196,17 +204,17 @@
           <div class="feature"><strong>Negocios locales</strong><p class="muted">Apoya a tu comunidad.</p></div>
         </div>
       </section>
-      <section class="card" id="installSection" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" id="installSection" data-reveal>
         <h3>Instalar</h3>
         <p class="muted">Agrega a la pantalla de inicio para una mejor experiencia.</p>
-        <button id="installBtn" hidden>Instalar app</button>
+        <button id="installBtn" hidden class="bg-primary text-white px-5 py-3 rounded-lg shadow-md">Instalar app</button>
       </section>
 
-      <section class="card" id="deliverySection" style="display:none" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" id="deliverySection" style="display:none" data-reveal>
         <h3>Reparto</h3>
         <p class="muted">Esta sección es visible solo cuando inicias sesión como <code>repartidor</code>.</p>
-        <div class="row" style="align-items:center;gap:8px">
-          <button id="delRefreshBtn" title="Actualizar mis asignaciones">Actualizar</button>
+        <div class="row items-center gap-2">
+          <button id="delRefreshBtn" class="bg-primary text-white px-4 py-2 rounded-lg shadow-md" title="Actualizar mis asignaciones">Actualizar</button>
           <label style="display:flex;align-items:center;gap:6px">
             <input type="checkbox" id="delShareLocation" />
             <span class="muted">Compartir ubicación en vivo</span>
@@ -224,66 +232,66 @@
         <p class="muted">Acciones: Acepta una asignación, luego marca Recogido y Entregado. Activa compartir ubicación para enviar tu posición durante el servicio.</p>
       </section>
 
-      <section class="card" id="welcomeSection">
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" id="welcomeSection">
         <h3>Bienvenido</h3>
         <div id="chat" class="chat"></div>
-        <div class="row">
-          <input id="chatInput" type="text" placeholder="Escribe un comando (p. ej., 'ver restaurantes', 'menú tacos', 'agregar 2 tacos')" style="flex:1; min-width:240px" />
-          <button id="chatSendBtn">Enviar</button>
+        <div class="flex gap-2">
+          <input id="chatInput" class="flex-1 min-w-[240px] border border-border rounded-md px-3 py-2" type="text" placeholder="Escribe un comando (p. ej., 'ver restaurantes', 'menú tacos', 'agregar 2 tacos')" />
+          <button id="chatSendBtn" class="bg-primary text-white px-4 py-2 rounded-lg shadow-md">Enviar</button>
         </div>
-        <div class="row">
-          <input id="email" type="email" placeholder="correo electrónico" />
-          <input id="password" type="password" placeholder="contraseña" />
+        <div class="grid grid-cols-2 gap-2">
+          <input id="email" class="border border-border rounded-md px-3 py-2" type="email" placeholder="correo electrónico" />
+          <input id="password" class="border border-border rounded-md px-3 py-2" type="password" placeholder="contraseña" />
           <select id="role">
             <option value="client" selected>cliente</option>
             <option value="staff">personal</option>
             <option value="admin">admin</option>
             <option value="delivery">repartidor</option>
           </select>
-          <button id="registerBtn">Registrar</button>
-          <button id="loginBtn">Entrar</button>
-          <button id="logoutBtn">Salir</button>
+          <button id="registerBtn" class="bg-surface border border-border rounded-lg px-4 py-2">Registrar</button>
+          <button id="loginBtn" class="bg-primary text-white rounded-lg px-4 py-2">Entrar</button>
+          <button id="logoutBtn" class="bg-surface border border-border rounded-lg px-4 py-2">Salir</button>
         </div>
         <p class="muted">API Base: <code id="apiBase"></code></p>
-        <div class="row">
-          <input id="apiBaseInput" type="text" placeholder="http://192.168.1.70:4000" style="flex:1; min-width:240px" />
-          <button id="setApiBaseBtn" title="Guardar API Base y recargar">Guardar API Base</button>
-          <button id="clearApiBaseBtn" title="Borrar API Base guardado y recargar">Borrar</button>
+        <div class="flex gap-2">
+          <input id="apiBaseInput" class="flex-1 min-w-[240px] border border-border rounded-md px-3 py-2" type="text" placeholder="http://192.168.1.70:4000" />
+          <button id="setApiBaseBtn" class="bg-primary text-white px-4 py-2 rounded-lg" title="Guardar API Base y recargar">Guardar API Base</button>
+          <button id="clearApiBaseBtn" class="bg-surface border border-border rounded-lg px-4 py-2" title="Borrar API Base guardado y recargar">Borrar</button>
         </div>
       </section>
 
-      <section class="card" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" data-reveal>
         <h3>Restaurantes</h3>
-        <div class="row">
-          <button id="loadRestaurantsBtn">Ver restaurantes</button>
+        <div class="flex gap-2">
+          <button id="loadRestaurantsBtn" class="bg-primary text-white px-4 py-2 rounded-lg">Ver restaurantes</button>
         </div>
         <ul id="restaurantsList"></ul>
       </section>
 
-      <section class="card" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" data-reveal>
         <h3>Menú</h3>
         <p class="muted" id="menuHeader">Ningún restaurante seleccionado.</p>
         <ul id="menuList"></ul>
       </section>
 
-      <section class="card" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" data-reveal>
         <h3>Carrito</h3>
         <ul id="cartList"></ul>
         <p><strong>Total:</strong> <span id="cartTotal">$0.00</span></p>
-        <div class="row">
-          <button id="clearCartBtn">Vaciar carrito</button>
-          <button id="reviewOrderBtn">Revisar pedido</button>
-          <button id="placeOrderBtn">Realizar pedido</button>
-          <button id="refreshOrdersBtn">Actualizar pedidos</button>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="clearCartBtn" class="bg-surface border border-border rounded-lg px-4 py-2">Vaciar carrito</button>
+          <button id="reviewOrderBtn" class="bg-surface border border-border rounded-lg px-4 py-2">Revisar pedido</button>
+          <button id="placeOrderBtn" class="bg-primary text-white rounded-lg px-4 py-2">Realizar pedido</button>
+          <button id="refreshOrdersBtn" class="bg-surface border border-border rounded-lg px-4 py-2">Actualizar pedidos</button>
         </div>
       </section>
 
-      <section class="card" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" data-reveal>
         <h3>Pedidos</h3>
         <ul id="ordersList"></ul>
       </section>
 
-      <section class="card" id="rcSection" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" id="rcSection" data-reveal>
         <h3>Consola del restaurante</h3>
         <div class="row">
           <select id="rcRestaurant"></select>
@@ -309,18 +317,22 @@
         <ul id="rcOrdersList"></ul>
       </section>
 
-      <section class="card" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" data-reveal>
         <h3>Rastreo</h3>
-        <p class="muted">Pedido activo: <span id="trackingOrder">—</span></p>
-        <div id="trackingStatus">Sin rastreo.</div>
+        <div class="flex items-center justify-between mb-2">
+          <p class="muted">Pedido activo: <span id="trackingOrder">—</span></p>
+          <span class="text-xs bg-secondary text-text-primary px-2 py-1 rounded-md border border-border">ETA <span id="trackingEta">—</span></span>
+        </div>
+        <div id="trackingStatus" class="text-sm font-medium">Sin rastreo.</div>
+        <ul id="trackingSteps" class="mt-2"></ul>
         <div id="trackingCoords" class="muted"></div>
         <div id="map"></div>
-        <div class="row">
-          <button id="stopTrackingBtn">Detener rastreo</button>
+        <div class="flex">
+          <button id="stopTrackingBtn" class="bg-surface border border-border rounded-lg px-4 py-2">Detener rastreo</button>
         </div>
       </section>
 
-      <section class="card" id="adminSection" style="display:none" data-reveal>
+      <section class="card bg-surface border border-border rounded-xl p-4 shadow-card" id="adminSection" style="display:none" data-reveal>
         <h3>Panel de administración</h3>
         <p class="muted">Vista de administrador enfocada en escritorio. Visible solo para usuarios con rol <code>admin</code>.</p>
         <div class="row" style="gap:12px; align-items:center">

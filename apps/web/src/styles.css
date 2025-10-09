@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base defaults (avoid @apply to keep build stable) */
+html, body {
+  background: #FFFDF9;
+  color: #1A1A1A;
+  font-family: Inter, Poppins, ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+}
