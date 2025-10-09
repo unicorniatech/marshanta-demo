@@ -1,8 +1,0 @@
-
-> @marshanta/web@0.1.0 preview
-> vite preview --port 5173 --port 5182
-
-Port 5182 is in use, trying another one...
-  ➜  Local:   http://localhost:5183/
-  ➜  Network: http://192.168.1.66:5183/
-  ➜  press h + enter to show help

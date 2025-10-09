@@ -1,31 +1,14 @@
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Logs
+*.log
+api.dev.log
+web.dev.log
+web.preview.log
+web.simple.log
 
-# Env
-.env
-.env.*
-!.env.example
-
-# Builds
-/dist/
-/apps/web/dist/
-/build/
-/.turbo/
-/.next/
-/out/
-
-# OS
+# OS/Editor
 .DS_Store
-
-# iOS (Capacitor)
-apps/mobile/ios/Pods/
-apps/mobile/ios/App/*.xcworkspace/xcuserdata/
-apps/mobile/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
-
-# Editor
-.vscode/
 .idea/
+.vscode/
+
+# Build outputs (do not commit built previews)
+apps/web/dist/
