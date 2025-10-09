@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2E5E2A"/>
+      <stop offset="100%" stop-color="#1E3F1B"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0B15B"/>
+      <stop offset="100%" stop-color="#F0902C"/>
+    </linearGradient>
+  </defs>
+  <!-- Badge background (mustard) -->
+  <circle cx="128" cy="128" r="122" fill="url(#g2)" opacity="0.18" />
+  <!-- Stylized leaf M -->
+  <path d="M64 72c28 12 50 48 64 96 14-48 36-84 64-96 0 60-16 116-64 144C80 188 64 132 64 72z" fill="url(#g1)" stroke="#0E2A0C" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M128 168c-10-34-26-60-46-72 0 44 8 76 46 100 38-24 46-56 46-100-20 12-36 38-46 72z" fill="#3B6A35" opacity="0.85"/>
+  <!-- Accent produce icons (abstract dots) -->
+  <circle cx="170" cy="66" r="8" fill="#7A3E7A"/>
+  <circle cx="92" cy="64" r="7" fill="#F472B6"/>
+  <circle cx="200" cy="92" r="6" fill="#F59E0B"/>
+  <circle cx="56" cy="96" r="6" fill="#34D399"/>
+</svg>

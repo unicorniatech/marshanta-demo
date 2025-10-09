@@ -488,10 +488,25 @@ function renderRestaurants(rows = []) {
   els.restaurantsList.innerHTML = ''
   rows.forEach(r => {
     const li = document.createElement('li')
+    li.className = 'mb-2'
+    const card = document.createElement('div')
+    card.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
+    const info = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'font-semibold text-text-primary'
+    title.textContent = r.name
+    const addr = document.createElement('div')
+    addr.className = 'text-sm text-text-secondary'
+    addr.textContent = r.address || ''
+    info.appendChild(title)
+    info.appendChild(addr)
     const btn = document.createElement('button')
-    btn.textContent = `${r.name} — ${r.address}`
+    btn.className = 'bg-primary text-white px-4 py-2 rounded-lg shadow-md'
+    btn.textContent = 'Ver menú'
     btn.addEventListener('click', () => selectRestaurant(r))
-    li.appendChild(btn)
+    card.appendChild(info)
+    card.appendChild(btn)
+    li.appendChild(card)
     els.restaurantsList.appendChild(li)
   })
 }
@@ -514,11 +529,25 @@ function renderMenu(items = []) {
   lastMenuItems = items
   items.forEach(it => {
     const li = document.createElement('li')
+    li.className = 'mb-2'
+    const card = document.createElement('div')
+    card.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
+    const info = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'font-medium text-text-primary'
+    title.textContent = it.name
+    const price = document.createElement('div')
+    price.className = 'text-sm font-semibold text-text-primary'
+    price.textContent = formatPrice(it.priceCents)
+    info.appendChild(title)
+    info.appendChild(price)
     const add = document.createElement('button')
-    add.textContent = `Agregar`
+    add.className = 'bg-primary text-white px-4 py-2 rounded-lg shadow-md'
+    add.textContent = 'Agregar'
     add.addEventListener('click', () => addToCart(it))
-    li.textContent = `${it.name} — ${formatPrice(it.priceCents)} `
-    li.appendChild(add)
+    card.appendChild(info)
+    card.appendChild(add)
+    li.appendChild(card)
     els.menuList.appendChild(li)
   })
 }
@@ -537,9 +566,13 @@ function renderCart() {
   let total = 0
   cart.forEach(c => {
     const li = document.createElement('li')
+    li.className = 'mb-2'
+    const row = document.createElement('div')
+    row.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
     const lineTotal = c.priceCents * c.qty
     total += lineTotal
     const minus = document.createElement('button')
+    minus.className = 'px-3 py-1 rounded-md border border-border bg-surface'
     minus.textContent = '-'
     minus.addEventListener('click', () => {
       c.qty -= 1
@@ -547,11 +580,19 @@ function renderCart() {
       renderCart()
     })
     const plus = document.createElement('button')
+    plus.className = 'px-3 py-1 rounded-md border border-border bg-surface'
     plus.textContent = '+'
     plus.addEventListener('click', () => { c.qty += 1; renderCart() })
-    li.textContent = `${c.name} x${c.qty} — ${formatPrice(lineTotal)} `
-    li.appendChild(minus)
-    li.appendChild(plus)
+    const label = document.createElement('div')
+    label.className = 'flex-1'
+    label.textContent = `${c.name} x${c.qty} — ${formatPrice(lineTotal)}`
+    const ctrls = document.createElement('div')
+    ctrls.className = 'flex items-center gap-2'
+    ctrls.appendChild(minus)
+    ctrls.appendChild(plus)
+    row.appendChild(label)
+    row.appendChild(ctrls)
+    li.appendChild(row)
     els.cartList.appendChild(li)
   })
   els.cartTotal.textContent = formatPrice(total)
@@ -652,34 +693,32 @@ function renderOrders(rows = []) {
   els.ordersList.innerHTML = ''
   rows.forEach(o => {
     const li = document.createElement('li')
-    const title = document.createElement('div')
-    title.textContent = `#${o.id} — R${o.restaurantId}`
+    li.className = 'mb-2'
+    const card = document.createElement('div')
+    card.className = 'bg-surface border border-border rounded-xl p-3 shadow-card'
+    const head = document.createElement('div')
+    head.className = 'flex items-center justify-between'
+    const left = document.createElement('div')
+    left.className = 'font-semibold'
+    left.textContent = `#${o.id} — R${o.restaurantId}`
+    const right = document.createElement('div')
+    right.className = 'flex items-center gap-2'
     const st = createBadge(o.status, `status status-${o.status}`)
-    st.style.marginLeft = '8px'
-    title.appendChild(st)
-    // show payment status badge as well
     const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
-    pb.style.marginLeft = '6px'
-    title.appendChild(pb)
-    li.appendChild(title)
-    const items = document.createElement('div')
-    items.className = 'muted'
-    items.textContent = (o.items || []).map(i => `${i.name} x${i.qty}`).join(', ')
-    li.appendChild(items)
-    const payBadge = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
-    li.appendChild(payBadge)
-    const next = nextStatus(o.status)
-    if (next && isStaff()) {
-      const btn = document.createElement('button')
-      btn.textContent = `Advance → ${next}`
-      btn.addEventListener('click', async () => {
-        btn.disabled = true
-        try { await advanceOrder(o.id, next) } finally { btn.disabled = false }
-      })
-      li.appendChild(btn)
+    right.appendChild(st)
+    right.appendChild(pb)
+    head.appendChild(left)
+    head.appendChild(right)
+    card.appendChild(head)
+    if (Array.isArray(o.items) && o.items.length) {
+      const items = document.createElement('div')
+      items.className = 'text-sm text-text-secondary mt-2'
+      items.textContent = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ')
+      card.appendChild(items)
     }
     if (!o.paymentStatus || o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Failed') {
       const payBtn = document.createElement('button')
+      payBtn.className = 'mt-2 bg-primary text-white px-4 py-2 rounded-lg shadow-md'
       payBtn.textContent = 'Pagar'
       payBtn.addEventListener('click', async () => {
         payBtn.disabled = true
@@ -687,12 +726,14 @@ function renderOrders(rows = []) {
         payBtn.textContent = 'Pagando…'
         try { await startPaymentFlow(o.id) } finally { payBtn.textContent = prev; payBtn.disabled = false }
       })
-      li.appendChild(payBtn)
+      card.appendChild(payBtn)
     }
     const track = document.createElement('button')
-    track.textContent = 'Track'
+    track.className = 'mt-2 bg-surface border border-border px-4 py-2 rounded-lg'
+    track.textContent = 'Rastrear'
     track.addEventListener('click', () => trackOrder(o.id))
-    li.appendChild(track)
+    card.appendChild(track)
+    li.appendChild(card)
     els.ordersList.appendChild(li)
   })
 }
@@ -727,21 +768,61 @@ let trackingId = null
 let map = null
 let mapMarker = null
 
+// Render tracking stepper based on order status (used by trackOrder)
+function renderTrackingSteps(status) {
+  try {
+    const steps = [
+      { key: 'Submitted', label: 'Pedido recibido' },
+      { key: 'Accepted', label: 'Aceptado' },
+      { key: 'Preparing', label: 'Preparando' },
+      { key: 'ReadyForPickup', label: 'Listo para recoger' },
+      { key: 'Delivered', label: 'Entregado' },
+    ]
+    const ul = document.getElementById('trackingSteps')
+    if (!ul) return
+    ul.innerHTML = ''
+    let activeFound = false
+    steps.forEach(s => {
+      const li = document.createElement('li')
+      const isActive = !activeFound
+      if (s.key === status) activeFound = true
+      li.className = `flex items-center gap-2 py-1 ${isActive ? 'text-text-primary' : 'text-text-secondary'}`
+      const dot = document.createElement('span')
+      dot.className = `inline-block w-2 h-2 rounded-full ${isActive ? 'bg-primary' : 'bg-border'}`
+      const label = document.createElement('span')
+      label.textContent = s.label
+      li.appendChild(dot)
+      li.appendChild(label)
+      ul.appendChild(li)
+    })
+    // Simple ETA heuristic
+    const eta = document.getElementById('trackingEta')
+    if (eta) {
+      const byStatus = { Submitted: '25m', Accepted: '20m', Preparing: '15m', ReadyForPickup: '10m', Delivered: '0m' }
+      eta.textContent = byStatus[status] || '—'
+    }
+  } catch (_) {}
+}
+
 function trackOrder(orderId) {
   stopTracking()
   if (!apiBase) return say('API base no configurado')
   trackingId = orderId
   els.trackingOrder.textContent = `#${orderId}`
   els.trackingStatus.textContent = 'Conectando...'
+  try { const eta = document.getElementById('trackingEta'); if (eta) eta.textContent = '—' } catch(_) {}
+  renderTrackingSteps('Submitted')
   els.trackingCoords.textContent = ''
   ensureMap()
-  const url = `${apiBase}/tracking/${orderId}/stream`
+  const token = localStorage.getItem(tokenKey)
+  const url = `${apiBase}/tracking/${orderId}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
   es = new EventSource(url)
   es.onmessage = (ev) => {
     try {
       const data = JSON.parse(ev.data)
       if (data.type === 'hello') {
         els.trackingStatus.textContent = `Estatus: ${data.status}`
+        renderTrackingSteps(String(data.status || ''))
       } else if (data.type === 'location') {
         els.trackingCoords.textContent = `Lat ${data.lat.toFixed(6)}, Lng ${data.lng.toFixed(6)} @ ${new Date(data.ts).toLocaleTimeString()}`
         updateMap(data.lat, data.lng)
@@ -755,6 +836,15 @@ function trackOrder(orderId) {
   }
   es.onerror = () => {
     els.trackingStatus.textContent = 'Error de conexión'
+    // Lightweight retry in case of transient network/CORS issues (e.g., simulator)
+    try { es.close() } catch(_) {}
+    if (trackingId === orderId) {
+      setTimeout(() => {
+        // Re-init only if still on same order and apiBase present
+        if (!apiBase || trackingId !== orderId) return
+        trackOrder(orderId)
+      }, 1500)
+    }
   }
 }
 
