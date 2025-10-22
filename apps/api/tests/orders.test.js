@@ -8,9 +8,18 @@ export default async function (req) {
   if (menu.status !== 200) throw new Error(`menu ${menu.status}`)
   const item = menu.body.items[0] || { name: 'Custom', priceCents: 1000, id: 0 }
 
-  // 2) Create an order
+  // 2) Create an order (requires auth). Register/login client and use token
+  const cEmail = `client_${Date.now()}@test.local`
+  const reg = await req.post('/auth/register').send({ email: cEmail, password: 'pw', role: 'client' })
+  if (reg.status !== 201) throw new Error(`register client ${reg.status}`)
+  const login = await req.post('/auth/login').send({ email: cEmail, password: 'pw' })
+  if (login.status !== 200) throw new Error(`login client ${login.status}`)
+  const cToken = login.body?.token
+  if (!cToken) throw new Error('expected client token')
+
   const create = await req
     .post('/orders')
+    .set('Authorization', `Bearer ${cToken}`)
     .send({ restaurantId: r.id, items: [{ itemId: item.id || 0, name: item.name, priceCents: item.priceCents, qty: 1 }] })
   if (create.status !== 201) throw new Error(`create order ${create.status}: ${JSON.stringify(create.body)}`)
   const order = create.body.order
@@ -27,13 +36,13 @@ export default async function (req) {
   if (confirm.body?.paymentStatus !== 'Succeeded') throw new Error('expected paymentStatus Succeeded')
 
   // 4) Register a staff user to perform status transitions
-  const email = `staff_${Date.now()}@test.local`
-  const reg = await req.post('/auth/register').send({ email, password: 'pw', role: 'staff' })
-  if (reg.status !== 201) throw new Error(`register ${reg.status}`)
-  const login = await req.post('/auth/login').send({ email, password: 'pw' })
-  if (login.status !== 200) throw new Error(`login ${login.status}`)
-  const token = login.body?.token
-  if (!token) throw new Error('expected token')
+  const sEmail = `staff_${Date.now()}@test.local`
+  const sReg = await req.post('/auth/register').send({ email: sEmail, password: 'pw', role: 'staff' })
+  if (sReg.status !== 201) throw new Error(`register ${sReg.status}`)
+  const sLogin = await req.post('/auth/login').send({ email: sEmail, password: 'pw' })
+  if (sLogin.status !== 200) throw new Error(`login ${sLogin.status}`)
+  const sToken = sLogin.body?.token
+  if (!sToken) throw new Error('expected token')
 
   // 5) Transition Submitted -> Accepted -> Preparing -> ReadyForPickup
   const seq = ['Accepted', 'Preparing', 'ReadyForPickup']
@@ -41,7 +50,7 @@ export default async function (req) {
   for (const next of seq) {
     const resp = await req
       .post(`/orders/${current.id}/status`)
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${sToken}`)
       .send({ next })
     if (resp.status !== 200) throw new Error(`transition to ${next} failed ${resp.status}: ${JSON.stringify(resp.body)}`)
     if (resp.body?.order?.status !== next) throw new Error(`expected status ${next}`)

@@ -33,7 +33,16 @@ export default async function (req) {
   const menu = await req.get(`/restaurants/${r.id}/menu`)
   if (menu.status !== 200) throw new Error(`menu ${menu.status}`)
   const item = menu.body.items[0] || { name: 'Item', priceCents: 1000, id: 0 }
-  const createOrder = await req.post('/orders').send({ restaurantId: r.id, items: [{ itemId: item.id || 0, name: item.name, priceCents: item.priceCents, qty: 1 }] })
+  // client auth to create order
+  const cEmail = `client_${Date.now()}@test.local`
+  const cReg = await req.post('/auth/register').send({ email: cEmail, password: 'pw', role: 'client' })
+  if (cReg.status !== 201) throw new Error(`client register ${cReg.status}`)
+  const cLogin = await req.post('/auth/login').send({ email: cEmail, password: 'pw' })
+  if (cLogin.status !== 200) throw new Error(`client login ${cLogin.status}`)
+  const cToken = cLogin.body?.token
+  if (!cToken) throw new Error('missing client token')
+
+  const createOrder = await req.post('/orders').set('Authorization', `Bearer ${cToken}`).send({ restaurantId: r.id, items: [{ itemId: item.id || 0, name: item.name, priceCents: item.priceCents, qty: 1 }] })
   if (createOrder.status !== 201) throw new Error(`create order ${createOrder.status}`)
   const orderId = createOrder.body?.order?.id
   if (!orderId) throw new Error('missing order id')

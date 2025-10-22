@@ -54,9 +54,11 @@ const els = {
   mkStartOrderBtn: document.getElementById('mkStartOrderBtn'),
   mkHowItWorksBtn: document.getElementById('mkHowItWorksBtn'),
   howOverlay: document.getElementById('howOverlay'),
+  howCloseX: document.getElementById('howCloseX'),
   howCloseBtn: document.getElementById('howCloseBtn'),
   howSignupBtn: document.getElementById('howSignupBtn'),
   roleBadge: document.getElementById('roleBadge'),
+  headerActions: document.getElementById('headerActions'),
   // API modal elements
   apiOverlay: document.getElementById('apiOverlay'),
   apiModalInput: document.getElementById('apiModalInput'),
@@ -79,6 +81,12 @@ const els = {
   trackingStatus: document.getElementById('trackingStatus'),
   trackingCoords: document.getElementById('trackingCoords'),
   stopTrackingBtn: document.getElementById('stopTrackingBtn')
+  ,
+  // Footer nav
+  homeNavBtn: document.getElementById('homeNavBtn'),
+  restNavBtn: document.getElementById('restNavBtn'),
+  cartNavBtn: document.getElementById('cartNavBtn'),
+  ordersNavBtn: document.getElementById('ordersNavBtn')
 }
 els.apiBase.textContent = apiBase
 // Prefill API base input if present
@@ -107,6 +115,11 @@ els.clearApiBaseBtn?.addEventListener('click', () => {
 // Global error surface (helps detect early JS errors on device)
 window.addEventListener('error', (e) => {
   try { console.error('JS error:', e?.message || e) } catch(_) {}
+  try { toast(`Error JS: ${e?.message || e}`, 'error') } catch(_) {}
+})
+window.addEventListener('unhandledrejection', (e) => {
+  try { console.error('Unhandled rejection:', e?.reason || e) } catch(_) {}
+  try { toast(`Promesa sin manejar: ${(e?.reason && e.reason.message) || e}`, 'error') } catch(_) {}
 })
 
 // Initialize role UI badge and RC controls when DOM is ready
@@ -114,6 +127,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try {
     updateRoleUI();
     updateInstallVisibility();
+    adjustHeaderForApi();
     // Ensure API modal wiring after DOM is ready
     const ss = document.getElementById('serverStatus')
     if (ss) ss.addEventListener('click', () => openApiModal())
@@ -121,6 +135,30 @@ window.addEventListener('DOMContentLoaded', () => {
     if ((!apiBase || apiBase.trim() === '') && isNativeApp()) {
       openApiModal()
     }
+    // Footer nav wiring
+    els.homeNavBtn?.addEventListener('click', () => {
+      try {
+        document.querySelector('main')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } catch (_) {}
+  try {
+    // Ensure auth buttons are not submitting a form
+    if (els.authLoginBtn) els.authLoginBtn.type = 'button'
+    if (els.authSignupBtn) els.authSignupBtn.type = 'button'
+    // Prevent default submit if wrapped in a form
+    const authForm = els.authLoginBtn?.closest?.('form') || els.authSignupBtn?.closest?.('form')
+    if (authForm) authForm.addEventListener('submit', (ev) => { try { ev.preventDefault() } catch(_) {} })
+  } catch (_) {}
+    })
+    els.restNavBtn?.addEventListener('click', async () => {
+      try { await loadRestaurants() } catch (_) {}
+      try { document.getElementById('restaurantsList')?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+    })
+    els.cartNavBtn?.addEventListener('click', () => {
+      try { document.getElementById('cartList')?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+    })
+    els.ordersNavBtn?.addEventListener('click', () => {
+      try { document.getElementById('ordersList')?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+    })
   } catch (_) {}
 })
 
@@ -168,29 +206,43 @@ document.querySelectorAll('.chip[data-role]')?.forEach(ch => {
 })
 selectSignupRole('client')
 // Auth buttons
-els.authLoginBtn?.addEventListener('click', async () => {
+els.authLoginBtn?.addEventListener('click', async (ev) => {
+  try { ev?.preventDefault?.() } catch(_) {}
   const email = (els.authEmail?.value || '').trim()
   const password = els.authPassword?.value || ''
   if (!email) return say('Por favor ingresa tu correo electrónico.')
   if (!password) return say('Por favor ingresa tu contraseña.')
   if (!apiBase) { say('Configura la API Base (IP de tu computadora) en la sección Bienvenido.'); try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {} return }
+  toast('Iniciando sesión…')
   const r = await api('/auth/login', { method: 'POST', body: { email, password } })
-  if (r.ok && r.data.token) {
-    localStorage.setItem(tokenKey, r.data.token)
-    const me = await api('/me')
-    if (me.ok) {
-      try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
-      try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
-      say(`Hola ${me.data.user.email} (rol: ${me.data.user.role})`)
+  if (r.ok && r.data && r.data.token) {
+    try { localStorage.setItem(tokenKey, r.data.token) } catch(_) {}
+    let me
+    try {
+      me = await api('/me')
+    } catch (e) {
+      try { toast(`Error al consultar perfil: ${e?.message || e}`, 'warn') } catch(_) {}
+      me = { ok: false, status: 0, data: {} }
+    }
+    try { toast(`/me → ${me.status || (me.ok ? 200 : 0)}`, me.ok ? 'success' : 'warn') } catch(_) {}
+    const user = (me && me.ok && me.data && typeof me.data === 'object' && me.data.user) ? me.data.user : null
+    if (user) {
+      try { localStorage.setItem(userEmailKey, user.email || '') } catch (_) {}
+      try { currentRole = (user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
+      say(`Hola ${user.email || ''} ${user.role ? `(rol: ${user.role})` : ''}`)
       updateRoleUI(); startRcAuto(); if (currentRole === 'admin') { await loadAdmin() }
       hideAuth()
+    } else {
+      // Proceed even if /me fails or returns unexpected shape
+      try { toast('Sesión iniciada. No se pudo validar el perfil todavía.', 'warn') } catch(_) {}
+      updateRoleUI(); startRcAuto(); hideAuth()
     }
   } else {
     if (r.status === 0) {
       say('No se pudo conectar con la API. Verifica la API Base e internet.')
       try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {}
     } else {
-      say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
+      say(`Inicio de sesión fallido: ${r.status} ${(r.data && (r.data.error || r.data.message)) || ''}`)
     }
   }
 })
@@ -240,23 +292,34 @@ function closeApiModal() {
   els.apiOverlay.setAttribute('aria-hidden', 'true')
 }
 els.apiModalSave?.addEventListener('click', () => {
-  const v = (els.apiModalInput?.value || '').trim()
+  let raw = (els.apiModalInput?.value || '')
+  // Sanitize: normalize Unicode, strip zero-width chars, remove all whitespace, drop trailing slashes
+  let v = (raw.normalize ? raw.normalize('NFKC') : raw)
+  v = v.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '').replace(/\/+$/, '')
   if (!v) { alert('Ingresa una URL válida, p.ej. http://192.168.1.70:4000'); return }
+  // If scheme is missing, default to http
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)) v = `http://${v}`
+  // Validate only URL and protocol
+  let parsed; let isValid = false
   try {
-    const u = new URL(v)
-    if (!u.protocol.startsWith('http')) throw new Error('Invalid protocol')
-    localStorage.setItem('apiBase', v)
-    apiBase = v
-    updateServerStatus().catch(()=>{})
-    closeApiModal()
-  } catch (e) {
-    alert('URL inválida para el API Base')
-  }
+    parsed = new URL(v)
+    isValid = !!parsed && (parsed.protocol === 'http:' || parsed.protocol === 'https:')
+  } catch (_) { isValid = false }
+  if (!isValid) { alert('URL inválida para el API Base'); return }
+
+  // Persist normalized value without trailing slash and refresh UI/status
+  const saveVal = (parsed?.href || v).replace(/\/+$/, '')
+  try { localStorage.setItem('apiBase', saveVal) } catch (_) {}
+  apiBase = saveVal
+  updateServerStatus().catch(()=>{})
+  try { adjustHeaderForApi() } catch (_) {}
+  try { closeApiModal() } catch (_) {}
 })
 els.apiModalClear?.addEventListener('click', () => {
   localStorage.removeItem('apiBase')
   apiBase = ''
   updateServerStatus().catch(()=>{})
+  adjustHeaderForApi()
   closeApiModal()
 })
 els.apiModalClose?.addEventListener('click', () => closeApiModal())
@@ -283,6 +346,19 @@ document.getElementById('apiModalTest')?.addEventListener('click', async () => {
 // Expose opener for any external trigger if needed
 try { window.openApiModal = openApiModal } catch(_) {}
 
+// Global delegated close for any [data-close]
+document.addEventListener('click', (e) => {
+  try {
+    const t = e.target
+    const closer = t?.closest?.('[data-close]')
+    if (closer) {
+      if (els.howOverlay && els.howOverlay.style.display === 'flex') hideHow()
+      if (els.apiOverlay && els.apiOverlay.style.display === 'flex') closeApiModal()
+      if (els.authOverlay && els.authOverlay.style.display === 'flex') hideAuth()
+    }
+  } catch(_) {}
+})
+
 // ---------- Marketing wiring ----------
 function showHow() {
   if (els.howOverlay) { els.howOverlay.style.display = 'flex'; els.howOverlay.setAttribute('aria-hidden', 'false') }
@@ -299,6 +375,7 @@ els.mkStartOrderBtn?.addEventListener('click', async () => {
 })
 els.mkHowItWorksBtn?.addEventListener('click', () => showHow())
 els.howCloseBtn?.addEventListener('click', () => hideHow())
+els.howCloseX?.addEventListener('click', () => hideHow())
 els.howSignupBtn?.addEventListener('click', () => { hideHow(); showAuth('signup'); selectSignupRole('client') })
 
 // ---------- Reveal on scroll ----------
@@ -320,27 +397,50 @@ async function updateServerStatus() {
       el.textContent = 'api: configurar'
       el.classList.remove('ok')
       el.classList.add('bad')
+      try { el.title = 'apiBase: (no configurado)'; } catch(_) {}
+      try { document.getElementById('apiOpenBtn')?.classList.remove('compact') } catch(_) {}
+      try { el.style.display = '' } catch(_) {}
       return
     }
     el.textContent = 'api: comprobando…'
     el.classList.remove('ok', 'bad')
-    const r = await api('/health')
-    if (r.ok && r.data && (r.data.ok || r.status === 200)) {
+    try { el.title = `apiBase: ${apiBase}` } catch(_) {}
+    const tryCheckPath = async (p) => {
+      const r = await api(p)
+      if (r.ok && r.data && (r.data.ok || r.status === 200)) return { ok: true }
+      return { ok: false, status: r.status }
+    }
+    let res = await tryCheckPath('/healthz')
+    if (!res.ok) {
+      await new Promise(r => setTimeout(r, 500))
+      res = await tryCheckPath('/healthz')
+    }
+    if (!res.ok) {
+      await new Promise(r => setTimeout(r, 200))
+      res = await tryCheckPath('/health')
+      if (!res.ok) {
+        await new Promise(r => setTimeout(r, 500))
+        res = await tryCheckPath('/health')
+      }
+    }
+    if (res.ok) {
       el.textContent = 'api: en línea'
       el.classList.add('ok')
-    } else if (r.status === 0) {
+    } else if (res.status === 0) {
       el.textContent = 'api: sin conexión'
       el.classList.add('bad')
     } else {
-      el.textContent = `api: error ${r.status}`
+      el.textContent = `api: error ${res.status}`
       el.classList.add('bad')
     }
+    adjustHeaderForApi()
   } catch (_) {
     const el = document.getElementById('serverStatus')
     if (el) { el.textContent = 'api: sin conexión'; el.classList.add('bad') }
   }
 }
 updateServerStatus()
+try { setInterval(() => { try { updateServerStatus() } catch(_) {} }, 5000) } catch(_) {}
 
 function log(msg) {
   els.log.textContent += `\n${msg}`
@@ -350,6 +450,39 @@ function say(msg) {
   const p = document.createElement('p')
   p.textContent = msg
   els.chat.appendChild(p)
+}
+
+// Lightweight toast helper (non-blocking notifications)
+function toast(message, type = 'info') {
+  try {
+    let host = document.getElementById('toastHost')
+    if (!host) {
+      host = document.createElement('div')
+      host.id = 'toastHost'
+      host.style.position = 'fixed'
+      host.style.right = '16px'
+      host.style.bottom = '16px'
+      host.style.zIndex = '2000'
+      host.style.display = 'flex'
+      host.style.flexDirection = 'column'
+      host.style.gap = '8px'
+      document.body.appendChild(host)
+    }
+    const t = document.createElement('div')
+    t.textContent = message
+    t.style.padding = '10px 12px'
+    t.style.borderRadius = '10px'
+    t.style.fontSize = '14px'
+    t.style.boxShadow = '0 8px 24px rgba(0,0,0,0.35)'
+    t.style.color = '#0b1220'
+    // color by type
+    if (type === 'success') { t.style.background = '#a7f3d0' } // green-200
+    else if (type === 'error') { t.style.background = '#fecaca' } // red-200
+    else if (type === 'warn') { t.style.background = '#fde68a' } // amber-300
+    else { t.style.background = '#bfdbfe' } // blue-200
+    host.appendChild(t)
+    setTimeout(() => { try { host.removeChild(t) } catch(_) {} }, 2800)
+  } catch(_) {}
 }
 
 // ---------- Story 2.2 state ----------
@@ -365,6 +498,10 @@ try {
 
 function isStaff() {
   return currentRole === 'staff' || currentRole === 'admin'
+}
+
+function isAdmin() {
+  return currentRole === 'admin'
 }
 
 function updateRoleUI() {
@@ -402,10 +539,10 @@ function updateRoleUI() {
       }
     }
 
-    // Restaurant Console (staff/admin only)
+    // Restaurant Console (admin only)
     const rcSection = document.getElementById('rcSection')
     if (rcSection) {
-      rcSection.style.display = isStaff() ? '' : 'none'
+      rcSection.style.display = isAdmin() ? '' : 'none'
     }
 
     // Marketing (guest + client only)
@@ -432,26 +569,26 @@ function updateRoleUI() {
     const roleText = currentRole || 'invitado'
     if (badge) badge.textContent = `rol: ${roleText}`
     if (loadBtn) {
-      loadBtn.disabled = !isStaff()
-      loadBtn.title = isStaff() ? '' : 'La Consola del restaurante está disponible solo para personal o administrador.'
+      loadBtn.disabled = !isAdmin()
+      loadBtn.title = isAdmin() ? '' : 'La Consola del restaurante está disponible solo para administradores.'
     }
     if (rcRestaurantEl) {
-      rcRestaurantEl.disabled = !isStaff()
-      rcRestaurantEl.title = isStaff() ? '' : 'Inicia sesión como personal o admin para seleccionar un restaurante.'
+      rcRestaurantEl.disabled = !isAdmin()
+      rcRestaurantEl.title = isAdmin() ? '' : 'Inicia sesión como administrador para seleccionar un restaurante.'
     }
     if (rc.statusFilter) {
-      rc.statusFilter.disabled = !isStaff()
-      rc.statusFilter.title = isStaff() ? '' : 'Inicia sesión como personal o admin para filtrar pedidos.'
+      rc.statusFilter.disabled = !isAdmin()
+      rc.statusFilter.title = isAdmin() ? '' : 'Inicia sesión como administrador para filtrar pedidos.'
     }
     if (rc.autoRefresh) {
-      rc.autoRefresh.disabled = !isStaff()
-      rc.autoRefresh.title = isStaff() ? '' : 'Inicia sesión como personal o admin para habilitar auto-actualización.'
-      if (!isStaff()) {
+      rc.autoRefresh.disabled = !isAdmin()
+      rc.autoRefresh.title = isAdmin() ? '' : 'Inicia sesión como administrador para habilitar auto-actualización.'
+      if (!isAdmin()) {
         rc.autoRefresh.checked = false
         stopRcAuto()
       }
     }
-    if (rcHint) rcHint.style.display = isStaff() ? 'none' : ''
+    if (rcHint) rcHint.style.display = isAdmin() ? 'none' : ''
   } catch (_) {}
 }
 
@@ -485,15 +622,59 @@ function createBadge(text, cls) {
 }
 
 function renderRestaurants(rows = []) {
+  els.restaurantsList.className = 'list'
   els.restaurantsList.innerHTML = ''
   rows.forEach(r => {
     const li = document.createElement('li')
+    li.style.marginBottom = '10px'
+    const card = document.createElement('div')
+    card.className = 'item-card'
+    const left = document.createElement('div')
+    left.style.display = 'flex'
+    left.style.alignItems = 'center'
+    left.style.gap = '10px'
+    const th = document.createElement('div')
+    th.className = 'thumb'
+    th.textContent = '🍽️'
+    const meta = document.createElement('div')
+    meta.className = 'meta'
+    const title = document.createElement('div')
+    title.className = 'title'
+    title.textContent = r.name
+    const sub = document.createElement('div')
+    sub.className = 'sub'
+    sub.textContent = r.address || ''
+    meta.appendChild(title)
+    meta.appendChild(sub)
+    left.appendChild(th)
+    left.appendChild(meta)
     const btn = document.createElement('button')
-    btn.textContent = `${r.name} — ${r.address}`
+    btn.textContent = 'Ver menú'
     btn.addEventListener('click', () => selectRestaurant(r))
-    li.appendChild(btn)
+    card.appendChild(left)
+    card.appendChild(btn)
+    li.appendChild(card)
     els.restaurantsList.appendChild(li)
   })
+}
+
+function rcSetLoading(loading) {
+  if (!rc.list) return
+  rc.list.innerHTML = ''
+  if (loading) {
+    // Simple loading skeleton
+    for (let i = 0; i < 3; i++) {
+      const li = document.createElement('li')
+      const card = document.createElement('div')
+      card.className = 'item-card'
+      const left = document.createElement('div')
+      left.className = 'muted'
+      left.textContent = 'Cargando…'
+      card.appendChild(left)
+      li.appendChild(card)
+      rc.list.appendChild(li)
+    }
+  }
 }
 
 async function selectRestaurant(r) {
@@ -510,15 +691,39 @@ async function selectRestaurant(r) {
 }
 
 function renderMenu(items = []) {
+  els.menuList.className = 'list'
   els.menuList.innerHTML = ''
   lastMenuItems = items
   items.forEach(it => {
     const li = document.createElement('li')
+    li.style.marginBottom = '10px'
+    const card = document.createElement('div')
+    card.className = 'item-card'
+    const left = document.createElement('div')
+    left.style.display = 'flex'
+    left.style.alignItems = 'center'
+    left.style.gap = '10px'
+    const th = document.createElement('div')
+    th.className = 'thumb'
+    th.textContent = '🍔'
+    const meta = document.createElement('div')
+    meta.className = 'meta'
+    const title = document.createElement('div')
+    title.className = 'title'
+    title.textContent = it.name
+    const sub = document.createElement('div')
+    sub.className = 'sub'
+    sub.textContent = formatPrice(it.priceCents)
+    meta.appendChild(title)
+    meta.appendChild(sub)
+    left.appendChild(th)
+    left.appendChild(meta)
     const add = document.createElement('button')
-    add.textContent = `Agregar`
+    add.textContent = 'Agregar'
     add.addEventListener('click', () => addToCart(it))
-    li.textContent = `${it.name} — ${formatPrice(it.priceCents)} `
-    li.appendChild(add)
+    card.appendChild(left)
+    card.appendChild(add)
+    li.appendChild(card)
     els.menuList.appendChild(li)
   })
 }
@@ -1241,6 +1446,11 @@ async function initRestaurantConsole() {
       opt.textContent = `${x.name}`
       rc.restaurant.appendChild(opt)
     })
+    // Restore persisted filter if any
+    try {
+      const saved = localStorage.getItem('rcStatusFilter')
+      if (saved && rc.statusFilter) rc.statusFilter.value = saved
+    } catch(_) {}
     updateRoleUI()
   } catch (_) {
     // ignore errors during initial load
@@ -1249,22 +1459,25 @@ async function initRestaurantConsole() {
 
 async function rcLoadOrders() {
   const rid = rc.restaurant.value
-  if (!isStaff()) {
-    return say('Restaurant Console is available to staff or admin only. Please login as staff/admin.')
+  if (!isAdmin()) {
+    return say('La Consola del restaurante está disponible solo para administradores. Inicia sesión como admin.')
   }
   if (!rid) {
     return say('Please select a restaurant to load orders.')
   }
   try {
     rc.loadBtn.disabled = true
+    rcSetLoading(true)
     const r = await api(`/orders?restaurantId=${encodeURIComponent(rid)}`)
-    if (!r.ok) return say(`Failed to load orders for restaurant ${rid}: ${r.status}`)
+    if (!r.ok) { toast(`Error al cargar pedidos: ${r.status}`, 'error'); return say(`Failed to load orders for restaurant ${rid}: ${r.status}`) }
     const all = r.data.orders || []
     const f = (rc.statusFilter?.value || 'all')
     const rows = f === 'all' ? all : all.filter(x => x.status === f)
     renderRcOrders(rows)
+    toast(`Pedidos cargados: ${rows.length}`, 'success')
   } finally {
-    rc.loadBtn.disabled = !isStaff()
+    rcSetLoading(false)
+    rc.loadBtn.disabled = !isAdmin()
   }
 }
 
@@ -1279,7 +1492,7 @@ function stopRcAuto() {
 
 function startRcAuto() {
   stopRcAuto()
-  if (!isStaff()) return
+  if (!isAdmin()) return
   if (!rc.autoRefresh?.checked) return
   rcAutoTimer = setInterval(() => {
     rcLoadOrders().catch(() => {})
@@ -1288,6 +1501,29 @@ function startRcAuto() {
 
 function renderRcOrders(rows = []) {
   rc.list.innerHTML = ''
+  if (!rows.length) {
+    const wrap = document.createElement('div')
+    wrap.className = 'muted'
+    wrap.style.display = 'flex'
+    wrap.style.alignItems = 'center'
+    wrap.style.justifyContent = 'space-between'
+    wrap.style.gap = '8px'
+    const msg = document.createElement('span')
+    msg.textContent = 'Sin pedidos con el filtro actual.'
+    const clear = document.createElement('button')
+    clear.textContent = 'Limpiar filtro'
+    clear.addEventListener('click', () => {
+      if (rc.statusFilter) rc.statusFilter.value = 'all'
+      try { localStorage.setItem('rcStatusFilter', 'all') } catch(_) {}
+      rcLoadOrders().catch(()=>{})
+    })
+    wrap.appendChild(msg)
+    wrap.appendChild(clear)
+    const li = document.createElement('li')
+    li.appendChild(wrap)
+    rc.list.appendChild(li)
+    return
+  }
   rows.forEach(o => {
     const li = document.createElement('li')
     const title = document.createElement('div')
@@ -1309,7 +1545,13 @@ function renderRcOrders(rows = []) {
       btn.textContent = `Avanzar → ${next}`
       btn.addEventListener('click', async () => {
         btn.disabled = true
-        try { await advanceOrder(o.id, next); await rcLoadOrders() } finally { btn.disabled = false }
+        try {
+          await advanceOrder(o.id, next)
+          toast(`Pedido #${o.id} → ${next}`, 'success')
+          await rcLoadOrders()
+        } catch (e) {
+          toast(`Error al avanzar pedido #${o.id}`, 'error')
+        } finally { btn.disabled = false }
       })
       li.appendChild(btn)
     }
@@ -1329,7 +1571,10 @@ rc.loadBtn?.addEventListener('click', rcLoadOrders)
 initRestaurantConsole()
 
 // RC filter + auto-refresh wiring
-rc.statusFilter?.addEventListener('change', () => { if (isStaff()) rcLoadOrders() })
+rc.statusFilter?.addEventListener('change', () => {
+  try { localStorage.setItem('rcStatusFilter', rc.statusFilter.value) } catch(_) {}
+  if (isAdmin()) rcLoadOrders()
+})
 rc.autoRefresh?.addEventListener('change', () => { if (rc.autoRefresh.checked) startRcAuto(); else stopRcAuto() })
 
 els.registerBtn.addEventListener('click', async () => {

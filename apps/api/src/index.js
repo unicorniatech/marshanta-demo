@@ -131,7 +131,8 @@ app.get('/', (req, res) => {
 })
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000
-if (process.env.NODE_ENV !== 'test') {
+const shouldListen = !(process.env.NODE_ENV === 'test' || process.env.SKIP_LISTEN === '1')
+if (shouldListen) {
   app.listen(port, () => {
     console.log(`API listening on http://localhost:${port}`)
   })

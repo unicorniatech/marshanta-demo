@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Marshanta</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#2E5E2A" />
+    <meta name="theme-color" content="#F4C21A" />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -14,24 +14,51 @@
     />
     <style>
       :root {
-        /* Brand (from logo) */
-        --brand-primary:#2E5E2A; /* dark green */
-        --brand-secondary:#F0B15B; /* mustard */
-        --brand-accent:#7A3E7A; /* grape */
-        --brand-warm:#F0902C; /* carrot */
-        /* Theme */
+        /* Brand */
+        --brand-primary:#F4C21A; /* golden yellow */
+        --brand-secondary:#2E5E2A; /* deep green */
+        --brand-accent:#7A4CE0; /* violet accent */
+        --brand-warm:#F39A2D;   /* warm orange */
+        /* Dark mode (default) */
         --bg:#0b1220;
         --card:#0f172a;
         --fg:#e2e8f0;
         --muted:#b9c2d0;
+        --border: rgba(148,163,184,0.12);
+        --shadow: 0 12px 30px rgba(0,0,0,0.35);
+        --btn-text:#1a1a1a; /* for yellow buttons */
+      }
+      /* Light mode */
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg:#f8fafc;
+          --card:#ffffff;
+          --fg:#0f172a;
+          --muted:#64748b;
+          --border: rgba(15,23,42,0.08);
+          --shadow: 0 8px 18px rgba(15,23,42,0.10);
+          --btn-text:#1a1a1a;
+        }
       }
       * { box-sizing: border-box; }
       body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background: var(--bg); color: var(--fg); }
-      header { padding: 12px 16px; background: var(--brand-secondary); color:#1b2a1b; font-weight: 800; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom: 2px solid rgba(0,0,0,0.05); }
-      .brand { display:flex; align-items:center; gap:10px; }
+      header { position:sticky; top:0; z-index:50; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: var(--brand-secondary); color:#f1f5f9; font-weight: 800; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); flex-wrap: wrap; }
+      .brand { display:flex; align-items:center; gap:10px; flex: 1 1 100%; min-width:0; }
       .brand img { width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.25)); }
-      .brand .title { font-size: 18px; color: var(--brand-primary); letter-spacing: 0.2px; }
-      .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#081018; color:var(--brand-secondary); border:1px solid rgba(240,177,91,0.6); }
+      .brand .title { font-size: 18px; color: #ffffff; letter-spacing: 0.2px; text-shadow: 0 1px 1px rgba(0,0,0,0.25); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+      #headerActions { display:flex; gap:8px; align-items:center; flex: 1 1 100%; flex-wrap: wrap; }
+      #headerActions .badge, #headerActions button { white-space: nowrap; }
+      /* Compact icon variant for API button when apiBase is configured */
+      #apiOpenBtn.compact { width: 36px; height: 36px; padding: 0; border-radius: 999px; display:flex; align-items:center; justify-content:center; }
+      #apiOpenBtn.compact::before { content: "⚙️"; font-size: 18px; line-height: 1; }
+      #apiOpenBtn.compact { background:#0b1220; color:#f1f5f9; border:1px solid var(--border); box-shadow:none; }
+      @media (min-width: 640px) {
+        header { align-items:center; flex-wrap: nowrap; }
+        .brand { flex: 0 1 auto; }
+        .brand .title { max-width: 60vw; }
+        #headerActions { flex: 0 0 auto; margin-left: auto; }
+      }
+      .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#081018; color:var(--brand-primary); border:1px solid rgba(244,194,26,0.55); }
       .badge.ok { background:#0a1a0a; color:#a7f3d0; border-color: rgba(34,197,94,0.5); }
       .badge.bad { background:#1a0a0a; color:#fecaca; border-color: rgba(239,68,68,0.5); }
       .status { margin-left:8px; }
@@ -41,56 +68,101 @@
       .status-ReadyForPickup { background:#0b1220; color:#f472b6; border-color:#831843; }
       .pay-Unpaid, .pay-Failed { background:#0b1220; color:#f87171; border-color:#7f1d1d; }
       .pay-Paid, .pay-Succeeded { background:#0b1220; color:#34d399; border-color:#065f46; }
-      main { max-width: 800px; margin: 24px auto; padding: 0 16px; }
-      .card { background: rgba(15,23,42,0.75); backdrop-filter: blur(10px); border: 1px solid rgba(148,163,184,0.08); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
-      button { background:var(--brand-primary); color:#f1f5f9; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; box-shadow: 0 4px 14px rgba(46,94,42,0.25); transition: transform .15s ease, box-shadow .2s ease, background .2s ease; }
-      button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(46,94,42,0.35); }
-      button:active { transform: translateY(0); box-shadow: 0 2px 10px rgba(46,94,42,0.25); }
-      input { padding:10px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--fg); }
+      main { max-width: 800px; margin: 24px auto; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
+      /* Respect left/right safe-area on iPhone (Dynamic Island/edges) */
+      @supports (padding: max(0px)) {
+        main { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); }
+      }
+      .card { background: var(--card); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+      button { background:var(--brand-primary); color:var(--btn-text); border:0; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer; box-shadow: 0 4px 14px rgba(244,194,26,0.25); transition: transform .15s ease, box-shadow .2s ease, background .2s ease; min-height:40px; font-size:14px; }
+      button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(244,194,26,0.35); }
+      button:active { transform: translateY(0); box-shadow: 0 2px 10px rgba(244,194,26,0.25); }
+      button:focus-visible { outline: 2px solid rgba(244,194,26,0.8); outline-offset: 2px; }
+      button[disabled] { opacity: 0.6; filter: saturate(0.6); cursor: not-allowed; box-shadow: none; transform: none; }
+      .cta-secondary { background: transparent; color: var(--fg); border:1px solid var(--border); box-shadow:none; }
+      input, select { padding:10px; border-radius:10px; border:1px solid var(--border); background: var(--bg); color:var(--fg); }
+      ::placeholder { color: var(--muted); opacity: 1; }
+      @media (prefers-color-scheme: light) {
+        input, select { background:#ffffff; }
+      }
+      h1 { font-size: 22px; line-height: 1.25; font-weight: 800; }
+      h2 { font-size: 18px; line-height: 1.3; font-weight: 800; }
+      h3 { font-size: 16px; line-height: 1.35; font-weight: 800; margin: 4px 0 8px; }
       .row { display:flex; gap:8px; flex-wrap:wrap; }
       .muted { color: var(--muted); font-size: 12px; }
       .chat { min-height: 140px; }
       .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
       #map { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid #1f2937; }
+      /* List cards */
+      .list { list-style: none; padding-left: 0; margin: 0; }
+      .item-card { display:flex; align-items:center; justify-content:space-between; gap:12px; background: var(--card); border:1px solid var(--border); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); flex-wrap: wrap; overflow: hidden; }
+      /* Keep action buttons inside the card on small screens */
+      .item-card > button { flex: 0 0 auto; margin-left: auto; max-width: 48%; }
+      .item-card .meta { min-width: 0; }
+      .thumb { width: 48px; height: 48px; border-radius: 12px; background: rgba(0,0,0,0.1); display:flex; align-items:center; justify-content:center; font-size:20px; border:1px solid var(--border); overflow:hidden; }
+      .thumb img { width:100%; height:100%; object-fit: cover; display:block; }
+      .meta { display:flex; flex-direction:column; min-width:0; }
+      .title { font-weight:700; color: var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .sub { font-size:12px; color: var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      /* Footer nav */
+      .footer-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: var(--card); border-top:1px solid var(--border); padding: 8px calc(16px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); box-shadow: 0 -8px 20px rgba(0,0,0,0.25); }
+      .footer-row { max-width: 800px; margin: 0 auto; display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; }
+      .footer-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding: 8px 6px; border-radius: 10px; background: transparent; border:1px solid transparent; color: var(--fg); min-height: auto; box-shadow:none; }
+      .footer-btn:hover { background: rgba(0,0,0,0.06); }
+      .footer-icon { font-size: 18px; line-height: 1; }
+      .footer-label { font-size: 11px; }
       /* Auth Modal */
       .auth-overlay { position: fixed; inset: 0; background: radial-gradient(1200px 600px at 20% 10%, rgba(240,177,91,0.25), transparent 60%), radial-gradient(1200px 600px at 80% 90%, rgba(46,94,42,0.25), transparent 60%), linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.95)); display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px); z-index: 1000; }
-      .auth-card { width: 92%; max-width: 480px; background: rgba(15,23,42,0.9); border: 1px solid #1f2937; border-radius: 16px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+      .auth-card { position: relative; width: 92%; max-width: 480px; background: rgba(15,23,42,0.9); border: 1px solid #1f2937; border-radius: 16px; padding: 56px 20px 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+      .auth-card .auth-close { top: 8px; right: 8px; z-index: 2; }
+      .auth-actions button { background: var(--brand-primary); color: var(--btn-text); text-shadow: none; }
       .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-      .tab { flex: 1; text-align: center; padding: 10px; border-radius: 10px; background: #0b1220; color: var(--fg); border:1px solid #1f2937; cursor: pointer; }
-      .tab.active { background:var(--brand-primary); color:#f1f5f9; border-color:rgba(46,94,42,0.65); font-weight: 700; }
+      .tab { flex: 1; text-align: center; padding: 10px; border-radius: 10px; background: #122036; color: #f1f5f9; border:1px solid #50607a; cursor: pointer; font-weight:700; }
+      .tab:hover { border-color:#475569; }
+      .tab:focus-visible { outline:2px solid rgba(244,194,26,0.8); outline-offset:2px; }
+      .tab.active { background:var(--brand-primary); color:var(--btn-text); border-color:rgba(244,194,26,0.55); font-weight: 800; }
       .role-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-      .chip { padding:6px 10px; border-radius:999px; border:1px solid #334155; background:#0b1220; color:var(--fg); cursor:pointer; font-size:12px; }
-      .chip.selected { background:var(--brand-secondary); color:#1b2a1b; border-color:rgba(240,177,91,0.65); font-weight:700; }
+      .chip { padding:6px 10px; border-radius:999px; border:1px solid #475569; background:#0e1628; color:#e2e8f0; cursor:pointer; font-size:12px; }
+      .chip.selected { background:var(--brand-secondary); color:#f1f5f9; border-color:rgba(240,177,91,0.65); font-weight:700; }
       .auth-actions { display:flex; gap:8px; margin-top:12px; }
-      .auth-close { position:absolute; top:16px; right:16px; background:transparent; color:#e2e8f0; border:1px solid #334155; }
+      .auth-actions button[disabled] { opacity: .9; }
+      .auth-card input, .auth-card select { background:#ffffff; color:#0f172a; border:1px solid rgba(148,163,184,0.35); }
+      .auth-card ::placeholder { color:#64748b; opacity:1; }
+      .auth-card .muted { color:#cbd5e1; }
+      .auth-close { position:absolute; top: calc(16px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); background: rgba(2,6,23,0.6); color:#f1f5f9; border:1px solid rgba(148,163,184,0.2); width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:999px; backdrop-filter: blur(4px); }
       /* Marketing */
-      .hero { position: relative; overflow: hidden; border-radius: 20px; padding: 28px; background: linear-gradient(120deg, rgba(240,177,91,0.85), rgba(240,177,91,0.65) 50%, rgba(46,94,42,0.25)); border:1px solid rgba(148,163,184,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.45); backdrop-filter: blur(12px); }
+      .hero { position: relative; overflow: hidden; border-radius: 20px; padding: 28px; background: linear-gradient(120deg, rgba(244,194,26,0.9), rgba(244,194,26,0.65) 50%, rgba(46,94,42,0.25)); border:1px solid var(--border); box-shadow: var(--shadow); backdrop-filter: blur(12px); }
       .hero .content { position: relative; z-index: 1; }
       .hero::after { content: ""; position:absolute; inset:-20%; background: radial-gradient(600px 300px at 80% 10%, rgba(122,62,122,0.12), transparent 60%), radial-gradient(500px 260px at 0% 90%, rgba(240,144,44,0.12), transparent 60%); pointer-events:none; }
       .hero .row { margin-top: 12px; }
-      .hero h2 { margin: 0 0 8px 0; color:#102410; font-weight: 900; letter-spacing: .2px; }
-      .hero p { margin: 0 0 12px 0; color: #2C3A2C; }
-      .hero .cta-secondary { background:#0b1220; color:var(--fg); border:1px solid rgba(46,94,42,0.5) }
+      .hero h2 { margin: 0 0 8px 0; color:#0b1220; font-weight: 900; letter-spacing: .2px; text-shadow: 0 1px 1px rgba(255,255,255,0.25); }
+      .hero p { margin: 0 0 12px 0; color: #0f172a; }
+      .hero .cta-secondary { background:#0b1220; color:#f1f5f9; border:1px solid var(--border) }
+      /* Solid secondary for dark surfaces */
+      .btn-secondary { background:#0b1220; color:#f1f5f9; border:1px solid rgba(148,163,184,0.25); }
       .hero .hero-media { position:absolute; top:10px; right:10px; opacity: .18; z-index: 0; pointer-events: none; }
       .hero .hero-media img { width: 80px; height: 80px; object-fit: contain; }
       /* Click affordance */
       #serverStatus { cursor: pointer; }
 
       /* Marketing sections */
-      .section-title { font-size: 20px; font-weight:800; color:#eaf1e8; margin: 8px 0 6px; }
+      .section-title { font-size: 20px; font-weight:800; color:#f8fafc; margin: 8px 0 6px; text-shadow: 0 1px 1px rgba(0,0,0,0.25); }
       .testimonials, .faq { display:grid; gap:10px; }
       .quote { background: rgba(2,6,23,0.6); border:1px solid rgba(240,177,91,0.2); border-radius:14px; padding:12px; }
       .faq .q { font-weight:700; }
       .hero h2 { margin: 0 0 8px 0; }
       .hero p { margin: 0 0 12px 0; color: var(--muted); }
       .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-      .feature { background: rgba(2,6,23,0.6); backdrop-filter: blur(8px); border:1px solid rgba(148,163,184,0.08); border-radius:14px; padding:12px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+      .feature { background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); border:1px solid rgba(148,163,184,0.16); border-radius:14px; padding:12px; box-shadow: 0 6px 20px rgba(0,0,0,0.35); color:#e5e7eb; }
+      .feature strong { color:#f9fafb; }
+      .feature p { color:#cbd5e1; }
       .gallery { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
       .gallery img { width: 100%; height: 120px; object-fit: cover; border-radius: 14px; border:1px solid rgba(148,163,184,0.08); box-shadow: 0 8px 24px rgba(0,0,0,0.35); transition: transform .3s ease, box-shadow .3s ease; }
       .gallery img:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 12px 32px rgba(0,0,0,0.45); }
       /* How it works modal */
       .how-overlay { position: fixed; inset: 0; background: rgba(2,6,23,0.55); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1001; }
-      .how-card { width: 92%; max-width: 560px; background: rgba(15,23,42,0.86); border: 1px solid rgba(148,163,184,0.1); border-radius: 18px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+      .how-card { position: relative; width: 92%; max-width: 560px; background: rgba(15,23,42,0.86); border: 1px solid rgba(148,163,184,0.1); border-radius: 18px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+      .how-card .auth-close { top: 12px; right: 12px; z-index: 2; }
       .steps { display:grid; gap:10px; }
       /* Reveal animations */
       [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
@@ -101,6 +173,7 @@
     <!-- How it works Modal -->
     <div id="howOverlay" class="how-overlay" aria-hidden="true">
       <div class="how-card">
+        <button id="howCloseX" type="button" class="auth-close" aria-label="Cerrar" data-close>✕</button>
         <h3>¿Cómo funciona?</h3>
         <div class="steps">
           <div class="feature"><strong>1. Explora restaurantes</strong><p class="muted">Descubre tus lugares favoritos cerca de ti.</p></div>
@@ -109,7 +182,7 @@
           <div class="feature"><strong>4. Rastrea en vivo</strong><p class="muted">Sigue a tu repartidor y recibe tu pedido a tiempo.</p></div>
         </div>
         <div class="row" style="margin-top:12px">
-          <button id="howCloseBtn" style="background:#0b1220; color:var(--fg); border:1px solid #334155">Cerrar</button>
+          <button id="howCloseBtn" type="button" class="btn-secondary" data-close>Cerrar</button>
           <button id="howSignupBtn">Crear cuenta</button>
         </div>
       </div>
@@ -132,8 +205,8 @@
     </div>
     <!-- Auth Modal -->
     <div id="authOverlay" class="auth-overlay" aria-hidden="true">
-      <button id="authClose" class="auth-close">✕</button>
       <div class="auth-card">
+        <button id="authClose" type="button" class="auth-close" aria-label="Cerrar" data-close>✕</button>
         <div class="tabs">
           <button id="tabLogin" class="tab active">Iniciar sesión</button>
           <button id="tabSignup" class="tab">Crear cuenta</button>
@@ -161,7 +234,7 @@
         <img src="/brand/logo-temp.svg" alt="Marshanta" />
         <div class="title">Marshanta — Tu comida favorita, a tu puerta</div>
       </div>
-      <div style="display:flex; gap:8px; align-items:center">
+      <div id="headerActions" style="display:flex; gap:8px; align-items:center">
         <div class="badge" id="serverStatus" title="Toca para configurar o revisar la API">api: desconocido</div>
         <button id="apiOpenBtn" class="cta-secondary" title="Abrir configuración de API">Configurar API</button>
         <div class="badge" id="roleBadge">rol: invitado</div>
@@ -175,7 +248,7 @@
           <p>Explora menús, ordena en segundos y rastrea a tu repartidor en tiempo real.</p>
           <div class="row">
             <button id="mkStartOrderBtn">Empieza tu pedido</button>
-            <button id="mkHowItWorksBtn" style="background:#0b1220; color:var(--fg); border:1px solid #334155">¿Cómo funciona?</button>
+            <button id="mkHowItWorksBtn" class="cta-secondary">¿Cómo funciona?</button>
           </div>
           <div class="hero-media"><img src="/brand/logo-temp.svg" alt="Logo" /></div>
         </div>
@@ -358,6 +431,15 @@
         <div id="log" class="log"></div>
       </section>
     </main>
+    <!-- Sticky Footer Nav -->
+    <nav class="footer-nav" aria-label="Primary">
+      <div class="footer-row">
+        <button id="homeNavBtn" class="footer-btn" title="Inicio"><div class="footer-icon">🏠</div><div class="footer-label">Inicio</div></button>
+        <button id="restNavBtn" class="footer-btn" title="Restaurantes"><div class="footer-icon">🍽️</div><div class="footer-label">Restaurantes</div></button>
+        <button id="cartNavBtn" class="footer-btn" title="Carrito"><div class="footer-icon">🛒</div><div class="footer-label">Carrito</div></button>
+        <button id="ordersNavBtn" class="footer-btn" title="Pedidos"><div class="footer-icon">📦</div><div class="footer-label">Pedidos</div></button>
+      </div>
+    </nav>
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
