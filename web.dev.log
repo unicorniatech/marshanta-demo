@@ -1,0 +1,17 @@
+
+> @marshanta/web@0.1.0 dev
+> vite --port 5173 --strictPort
+
+error when starting dev server:
+Error: Port 5173 is already in use
+    at Server.onError (file:///Volumes/Hildecornia/VISTADEV-MARSHANTA/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:45596:18)
+    at Server.emit (node:events:524:28)
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+npm error Lifecycle script `dev` failed with error:
+npm error code 1
+npm error path /Volumes/Hildecornia/VISTADEV-MARSHANTA/apps/web
+npm error workspace @marshanta/web@0.1.0
+npm error location /Volumes/Hildecornia/VISTADEV-MARSHANTA/apps/web
+npm error command failed
+npm error command sh -c vite --port 5173 --strictPort

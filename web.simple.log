@@ -1,0 +1,17 @@
+127.0.0.1 - - [08/Oct/2025 13:01:51] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET /assets/index-CVO_LDbZ.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET /assets/index-BD1X1WAz.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET /brand/logo-temp.svg HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET /assets/index-BD1X1WAz.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] code 404, message File not found
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET /service-worker.js HTTP/1.1" 404 -
+127.0.0.1 - - [08/Oct/2025 13:02:04] code 404, message File not found
+127.0.0.1 - - [08/Oct/2025 13:02:04] "GET /service-worker.js HTTP/1.1" 404 -
+127.0.0.1 - - [08/Oct/2025 13:02:05] "GET /marketing/ph6.svg HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:05] "GET /marketing/ph1.svg HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:05] "GET /assets/manifest-eWtPzzzD.webmanifest HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2025 13:02:05] code 404, message File not found
+127.0.0.1 - - [08/Oct/2025 13:02:05] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [08/Oct/2025 13:02:05] code 404, message File not found
+127.0.0.1 - - [08/Oct/2025 13:02:05] "GET /icons/logo-192.svg HTTP/1.1" 404 -

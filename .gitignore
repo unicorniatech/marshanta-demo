@@ -29,3 +29,12 @@ apps/mobile/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 # Editor
 .vscode/
 .idea/
+
+# Dev logs & PIDs
+api.dev.log
+web.dev.log
+web.preview.log
+web.simple.log
+cloudflared.log
+ngrok.log
+*.pid
