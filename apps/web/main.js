@@ -54,9 +54,11 @@ const els = {
   mkStartOrderBtn: document.getElementById('mkStartOrderBtn'),
   mkHowItWorksBtn: document.getElementById('mkHowItWorksBtn'),
   howOverlay: document.getElementById('howOverlay'),
+  howCloseX: document.getElementById('howCloseX'),
   howCloseBtn: document.getElementById('howCloseBtn'),
   howSignupBtn: document.getElementById('howSignupBtn'),
   roleBadge: document.getElementById('roleBadge'),
+  headerActions: document.getElementById('headerActions'),
   // API modal elements
   apiOverlay: document.getElementById('apiOverlay'),
   apiModalInput: document.getElementById('apiModalInput'),
@@ -78,7 +80,12 @@ const els = {
   trackingOrder: document.getElementById('trackingOrder'),
   trackingStatus: document.getElementById('trackingStatus'),
   trackingCoords: document.getElementById('trackingCoords'),
-  stopTrackingBtn: document.getElementById('stopTrackingBtn')
+  stopTrackingBtn: document.getElementById('stopTrackingBtn'),
+  // Footer nav
+  homeNavBtn: document.getElementById('homeNavBtn'),
+  restNavBtn: document.getElementById('restNavBtn'),
+  cartNavBtn: document.getElementById('cartNavBtn'),
+  ordersNavBtn: document.getElementById('ordersNavBtn')
 }
 els.apiBase.textContent = apiBase
 // Prefill API base input if present
@@ -107,6 +114,11 @@ els.clearApiBaseBtn?.addEventListener('click', () => {
 // Global error surface (helps detect early JS errors on device)
 window.addEventListener('error', (e) => {
   try { console.error('JS error:', e?.message || e) } catch(_) {}
+  try { toast(`Error JS: ${e?.message || e}`, 'error') } catch(_) {}
+})
+window.addEventListener('unhandledrejection', (e) => {
+  try { console.error('Unhandled rejection:', e?.reason || e) } catch(_) {}
+  try { toast(`Promesa sin manejar: ${(e?.reason && e.reason.message) || e}`, 'error') } catch(_) {}
 })
 
 // Initialize role UI badge and RC controls when DOM is ready
@@ -114,6 +126,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try {
     updateRoleUI();
     updateInstallVisibility();
+    adjustHeaderForApi();
     // Ensure API modal wiring after DOM is ready
     const ss = document.getElementById('serverStatus')
     if (ss) ss.addEventListener('click', () => openApiModal())
@@ -121,6 +134,30 @@ window.addEventListener('DOMContentLoaded', () => {
     if ((!apiBase || apiBase.trim() === '') && isNativeApp()) {
       openApiModal()
     }
+    // Footer nav wiring
+    els.homeNavBtn?.addEventListener('click', () => {
+      try {
+        document.querySelector('main')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } catch (_) {}
+      try {
+        // Ensure auth buttons are not submitting a form
+        if (els.authLoginBtn) els.authLoginBtn.type = 'button'
+        if (els.authSignupBtn) els.authSignupBtn.type = 'button'
+        // Prevent default submit if wrapped in a form
+        const authForm = els.authLoginBtn?.closest?.('form') || els.authSignupBtn?.closest?.('form')
+        if (authForm) authForm.addEventListener('submit', (ev) => { try { ev.preventDefault() } catch(_) {} })
+      } catch (_) {}
+    })
+    els.restNavBtn?.addEventListener('click', async () => {
+      try { await loadRestaurants() } catch (_) {}
+      try { document.getElementById('restaurantsList')?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+    })
+    els.cartNavBtn?.addEventListener('click', () => {
+      try { document.getElementById('cartList')?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+    })
+    els.ordersNavBtn?.addEventListener('click', () => {
+      try { document.getElementById('ordersList')?.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
+    })
   } catch (_) {}
 })
 
@@ -168,29 +205,43 @@ document.querySelectorAll('.chip[data-role]')?.forEach(ch => {
 })
 selectSignupRole('client')
 // Auth buttons
-els.authLoginBtn?.addEventListener('click', async () => {
+els.authLoginBtn?.addEventListener('click', async (ev) => {
+  try { ev?.preventDefault?.() } catch(_) {}
   const email = (els.authEmail?.value || '').trim()
   const password = els.authPassword?.value || ''
   if (!email) return say('Por favor ingresa tu correo electrónico.')
   if (!password) return say('Por favor ingresa tu contraseña.')
   if (!apiBase) { say('Configura la API Base (IP de tu computadora) en la sección Bienvenido.'); try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {} return }
+  toast('Iniciando sesión…')
   const r = await api('/auth/login', { method: 'POST', body: { email, password } })
-  if (r.ok && r.data.token) {
-    localStorage.setItem(tokenKey, r.data.token)
-    const me = await api('/me')
-    if (me.ok) {
-      try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
-      try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
-      say(`Hola ${me.data.user.email} (rol: ${me.data.user.role})`)
+  if (r.ok && r.data && r.data.token) {
+    try { localStorage.setItem(tokenKey, r.data.token) } catch(_) {}
+    let me
+    try {
+      me = await api('/me')
+    } catch (e) {
+      try { toast(`Error al consultar perfil: ${e?.message || e}`, 'warn') } catch(_) {}
+      me = { ok: false, status: 0, data: {} }
+    }
+    try { toast(`/me → ${me.status || (me.ok ? 200 : 0)}`, me.ok ? 'success' : 'warn') } catch(_) {}
+    const user = (me && me.ok && me.data && typeof me.data === 'object' && me.data.user) ? me.data.user : null
+    if (user) {
+      try { localStorage.setItem(userEmailKey, user.email || '') } catch (_) {}
+      try { currentRole = (user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
+      say(`Hola ${user.email || ''} ${user.role ? `(rol: ${user.role})` : ''}`)
       updateRoleUI(); startRcAuto(); if (currentRole === 'admin') { await loadAdmin() }
       hideAuth()
+    } else {
+      // Proceed even if /me fails or returns unexpected shape
+      try { toast('Sesión iniciada. No se pudo validar el perfil todavía.', 'warn') } catch(_) {}
+      updateRoleUI(); startRcAuto(); hideAuth()
     }
   } else {
     if (r.status === 0) {
       say('No se pudo conectar con la API. Verifica la API Base e internet.')
       try { document.getElementById('apiBaseInput')?.scrollIntoView({ behavior: 'smooth' }) } catch (_) {}
     } else {
-      say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
+      say(`Inicio de sesión fallido: ${r.status} ${(r.data && (r.data.error || r.data.message)) || ''}`)
     }
   }
 })
@@ -240,23 +291,34 @@ function closeApiModal() {
   els.apiOverlay.setAttribute('aria-hidden', 'true')
 }
 els.apiModalSave?.addEventListener('click', () => {
-  const v = (els.apiModalInput?.value || '').trim()
+  let raw = (els.apiModalInput?.value || '')
+  // Sanitize: normalize Unicode, strip zero-width chars, remove all whitespace, drop trailing slashes
+  let v = (raw.normalize ? raw.normalize('NFKC') : raw)
+  v = v.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '').replace(/\/+$/, '')
   if (!v) { alert('Ingresa una URL válida, p.ej. http://192.168.1.70:4000'); return }
+  // If scheme is missing, default to http
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)) v = `http://${v}`
+  // Validate only URL and protocol
+  let parsed; let isValid = false
   try {
-    const u = new URL(v)
-    if (!u.protocol.startsWith('http')) throw new Error('Invalid protocol')
-    localStorage.setItem('apiBase', v)
-    apiBase = v
-    updateServerStatus().catch(()=>{})
-    closeApiModal()
-  } catch (e) {
-    alert('URL inválida para el API Base')
-  }
+    parsed = new URL(v)
+    isValid = !!parsed && (parsed.protocol === 'http:' || parsed.protocol === 'https:')
+  } catch (_) { isValid = false }
+  if (!isValid) { alert('URL inválida para el API Base'); return }
+
+  // Persist normalized value without trailing slash and refresh UI/status
+  const saveVal = (parsed?.href || v).replace(/\/+$/, '')
+  try { localStorage.setItem('apiBase', saveVal) } catch (_) {}
+  apiBase = saveVal
+  updateServerStatus().catch(()=>{})
+  try { adjustHeaderForApi() } catch (_) {}
+  try { closeApiModal() } catch (_) {}
 })
 els.apiModalClear?.addEventListener('click', () => {
   localStorage.removeItem('apiBase')
   apiBase = ''
   updateServerStatus().catch(()=>{})
+  adjustHeaderForApi()
   closeApiModal()
 })
 els.apiModalClose?.addEventListener('click', () => closeApiModal())
@@ -283,6 +345,19 @@ document.getElementById('apiModalTest')?.addEventListener('click', async () => {
 // Expose opener for any external trigger if needed
 try { window.openApiModal = openApiModal } catch(_) {}
 
+// Global delegated close for any [data-close]
+document.addEventListener('click', (e) => {
+  try {
+    const t = e.target
+    const closer = t?.closest?.('[data-close]')
+    if (closer) {
+      if (els.howOverlay && els.howOverlay.style.display === 'flex') hideHow()
+      if (els.apiOverlay && els.apiOverlay.style.display === 'flex') closeApiModal()
+      if (els.authOverlay && els.authOverlay.style.display === 'flex') hideAuth()
+    }
+  } catch(_) {}
+})
+
 // ---------- Marketing wiring ----------
 function showHow() {
   if (els.howOverlay) { els.howOverlay.style.display = 'flex'; els.howOverlay.setAttribute('aria-hidden', 'false') }
@@ -299,6 +374,7 @@ els.mkStartOrderBtn?.addEventListener('click', async () => {
 })
 els.mkHowItWorksBtn?.addEventListener('click', () => showHow())
 els.howCloseBtn?.addEventListener('click', () => hideHow())
+els.howCloseX?.addEventListener('click', () => hideHow())
 els.howSignupBtn?.addEventListener('click', () => { hideHow(); showAuth('signup'); selectSignupRole('client') })
 
 // ---------- Reveal on scroll ----------
@@ -320,27 +396,50 @@ async function updateServerStatus() {
       el.textContent = 'api: configurar'
       el.classList.remove('ok')
       el.classList.add('bad')
+      try { el.title = 'apiBase: (no configurado)'; } catch(_) {}
+      try { document.getElementById('apiOpenBtn')?.classList.remove('compact') } catch(_) {}
+      try { el.style.display = '' } catch(_) {}
       return
     }
     el.textContent = 'api: comprobando…'
     el.classList.remove('ok', 'bad')
-    const r = await api('/health')
-    if (r.ok && r.data && (r.data.ok || r.status === 200)) {
+    try { el.title = `apiBase: ${apiBase}` } catch(_) {}
+    const tryCheckPath = async (p) => {
+      const r = await api(p)
+      if (r.ok && r.data && (r.data.ok || r.status === 200)) return { ok: true }
+      return { ok: false, status: r.status }
+    }
+    let res = await tryCheckPath('/healthz')
+    if (!res.ok) {
+      await new Promise(r => setTimeout(r, 500))
+      res = await tryCheckPath('/healthz')
+    }
+    if (!res.ok) {
+      await new Promise(r => setTimeout(r, 200))
+      res = await tryCheckPath('/health')
+      if (!res.ok) {
+        await new Promise(r => setTimeout(r, 500))
+        res = await tryCheckPath('/health')
+      }
+    }
+    if (res.ok) {
       el.textContent = 'api: en línea'
       el.classList.add('ok')
-    } else if (r.status === 0) {
+    } else if (res.status === 0) {
       el.textContent = 'api: sin conexión'
       el.classList.add('bad')
     } else {
-      el.textContent = `api: error ${r.status}`
+      el.textContent = `api: error ${res.status}`
       el.classList.add('bad')
     }
+    adjustHeaderForApi()
   } catch (_) {
     const el = document.getElementById('serverStatus')
     if (el) { el.textContent = 'api: sin conexión'; el.classList.add('bad') }
   }
 }
 updateServerStatus()
+try { setInterval(() => { try { updateServerStatus() } catch(_) {} }, 5000) } catch(_) {}
 
 function log(msg) {
   els.log.textContent += `\n${msg}`
@@ -350,6 +449,39 @@ function say(msg) {
   const p = document.createElement('p')
   p.textContent = msg
   els.chat.appendChild(p)
+}
+
+// Lightweight toast helper (non-blocking notifications)
+function toast(message, type = 'info') {
+  try {
+    let host = document.getElementById('toastHost')
+    if (!host) {
+      host = document.createElement('div')
+      host.id = 'toastHost'
+      host.style.position = 'fixed'
+      host.style.right = '16px'
+      host.style.bottom = '16px'
+      host.style.zIndex = '2000'
+      host.style.display = 'flex'
+      host.style.flexDirection = 'column'
+      host.style.gap = '8px'
+      document.body.appendChild(host)
+    }
+    const t = document.createElement('div')
+    t.textContent = message
+    t.style.padding = '10px 12px'
+    t.style.borderRadius = '10px'
+    t.style.fontSize = '14px'
+    t.style.boxShadow = '0 8px 24px rgba(0,0,0,0.35)'
+    t.style.color = '#0b1220'
+    // color by type
+    if (type === 'success') { t.style.background = '#a7f3d0' } // green-200
+    else if (type === 'error') { t.style.background = '#fecaca' } // red-200
+    else if (type === 'warn') { t.style.background = '#fde68a' } // amber-300
+    else { t.style.background = '#bfdbfe' } // blue-200
+    host.appendChild(t)
+    setTimeout(() => { try { host.removeChild(t) } catch(_) {} }, 2800)
+  } catch(_) {}
 }
 
 // ---------- Story 2.2 state ----------
@@ -365,6 +497,10 @@ try {
 
 function isStaff() {
   return currentRole === 'staff' || currentRole === 'admin'
+}
+
+function isAdmin() {
+  return currentRole === 'admin'
 }
 
 function updateRoleUI() {
@@ -402,10 +538,10 @@ function updateRoleUI() {
       }
     }
 
-    // Restaurant Console (staff/admin only)
+    // Restaurant Console (admin only)
     const rcSection = document.getElementById('rcSection')
     if (rcSection) {
-      rcSection.style.display = isStaff() ? '' : 'none'
+      rcSection.style.display = isAdmin() ? '' : 'none'
     }
 
     // Marketing (guest + client only)
@@ -432,26 +568,26 @@ function updateRoleUI() {
     const roleText = currentRole || 'invitado'
     if (badge) badge.textContent = `rol: ${roleText}`
     if (loadBtn) {
-      loadBtn.disabled = !isStaff()
-      loadBtn.title = isStaff() ? '' : 'La Consola del restaurante está disponible solo para personal o administrador.'
+      loadBtn.disabled = !isAdmin()
+      loadBtn.title = isAdmin() ? '' : 'La Consola del restaurante está disponible solo para administradores.'
     }
     if (rcRestaurantEl) {
-      rcRestaurantEl.disabled = !isStaff()
-      rcRestaurantEl.title = isStaff() ? '' : 'Inicia sesión como personal o admin para seleccionar un restaurante.'
+      rcRestaurantEl.disabled = !isAdmin()
+      rcRestaurantEl.title = isAdmin() ? '' : 'Inicia sesión como administrador para seleccionar un restaurante.'
     }
     if (rc.statusFilter) {
-      rc.statusFilter.disabled = !isStaff()
-      rc.statusFilter.title = isStaff() ? '' : 'Inicia sesión como personal o admin para filtrar pedidos.'
+      rc.statusFilter.disabled = !isAdmin()
+      rc.statusFilter.title = isAdmin() ? '' : 'Inicia sesión como administrador para filtrar pedidos.'
     }
     if (rc.autoRefresh) {
-      rc.autoRefresh.disabled = !isStaff()
-      rc.autoRefresh.title = isStaff() ? '' : 'Inicia sesión como personal o admin para habilitar auto-actualización.'
-      if (!isStaff()) {
+      rc.autoRefresh.disabled = !isAdmin()
+      rc.autoRefresh.title = isAdmin() ? '' : 'Inicia sesión como administrador para habilitar auto-actualización.'
+      if (!isAdmin()) {
         rc.autoRefresh.checked = false
         stopRcAuto()
       }
     }
-    if (rcHint) rcHint.style.display = isStaff() ? 'none' : ''
+    if (rcHint) rcHint.style.display = isAdmin() ? 'none' : ''
   } catch (_) {}
 }
 
@@ -485,6 +621,7 @@ function createBadge(text, cls) {
 }
 
 function renderRestaurants(rows = []) {
+  els.restaurantsList.className = 'list'
   els.restaurantsList.innerHTML = ''
   rows.forEach(r => {
     const li = document.createElement('li')
@@ -511,6 +648,25 @@ function renderRestaurants(rows = []) {
   })
 }
 
+function rcSetLoading(loading) {
+  const list = document.getElementById('rcOrdersList')
+  if (!list) return
+  list.innerHTML = ''
+  if (loading) {
+    for (let i = 0; i < 3; i++) {
+      const li = document.createElement('li')
+      const card = document.createElement('div')
+      card.className = 'item-card'
+      const left = document.createElement('div')
+      left.className = 'muted'
+      left.textContent = 'Cargando…'
+      card.appendChild(left)
+      li.appendChild(card)
+      list.appendChild(li)
+    }
+  }
+}
+
 async function selectRestaurant(r) {
   selectedRestaurant = r
   els.menuHeader.textContent = `Menú — ${r.name}`
@@ -525,6 +681,7 @@ async function selectRestaurant(r) {
 }
 
 function renderMenu(items = []) {
+  els.menuList.className = 'list'
   els.menuList.innerHTML = ''
   lastMenuItems = items
   items.forEach(it => {
@@ -567,199 +724,297 @@ function renderCart() {
   cart.forEach(c => {
     const li = document.createElement('li')
     li.className = 'mb-2'
-    const row = document.createElement('div')
-    row.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
-    const lineTotal = c.priceCents * c.qty
-    total += lineTotal
-    const minus = document.createElement('button')
-    minus.className = 'px-3 py-1 rounded-md border border-border bg-surface'
-    minus.textContent = '-'
-    minus.addEventListener('click', () => {
-      c.qty -= 1
-      if (c.qty <= 0) cart = cart.filter(x => x !== c)
+    const card = document.createElement('div')
+    card.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
+    const info = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'font-medium text-text-primary'
+    title.textContent = `${c.qty}× ${c.name}`
+    const price = document.createElement('div')
+    price.className = 'text-sm font-semibold text-text-primary'
+    price.textContent = formatPrice(c.priceCents * c.qty)
+    info.appendChild(title)
+    info.appendChild(price)
+    const remove = document.createElement('button')
+    remove.className = 'bg-primary text-white px-3 py-2 rounded-lg shadow-md'
+    remove.textContent = 'Quitar'
+    remove.addEventListener('click', () => {
+      cart = cart.filter(x => !(x.restaurantId === c.restaurantId && x.itemId === c.itemId))
       renderCart()
     })
-    const plus = document.createElement('button')
-    plus.className = 'px-3 py-1 rounded-md border border-border bg-surface'
-    plus.textContent = '+'
-    plus.addEventListener('click', () => { c.qty += 1; renderCart() })
-    const label = document.createElement('div')
-    label.className = 'flex-1'
-    label.textContent = `${c.name} x${c.qty} — ${formatPrice(lineTotal)}`
-    const ctrls = document.createElement('div')
-    ctrls.className = 'flex items-center gap-2'
-    ctrls.appendChild(minus)
-    ctrls.appendChild(plus)
-    row.appendChild(label)
-    row.appendChild(ctrls)
-    li.appendChild(row)
+    card.appendChild(info)
+    card.appendChild(remove)
+    li.appendChild(card)
     els.cartList.appendChild(li)
+    total += (c.priceCents || 0) * (c.qty || 0)
   })
   els.cartTotal.textContent = formatPrice(total)
-  persistCart()
 }
 
-// ---------- Orders (Story 3.1) ----------
-function summarizeCart() {
-  if (!selectedRestaurant) return 'Ningún restaurante seleccionado.'
-  if (!cart.length) return 'El carrito está vacío.'
-  const lines = cart.map(c => `• ${c.name} x${c.qty} = ${formatPrice(c.priceCents * c.qty)}`)
-  const subtotal = cart.reduce((acc, c) => acc + c.priceCents * c.qty, 0)
-  const taxes = Math.round(subtotal * 0.08)
-  const fees = Math.round(subtotal * 0.03)
-  const total = subtotal + taxes + fees
-  return `Pedido @ ${selectedRestaurant.name}\n${lines.join('\n')}\nSubtotal: ${formatPrice(subtotal)}\nImpuestos: ${formatPrice(taxes)}\nComisiones: ${formatPrice(fees)}\nTotal: ${formatPrice(total)}`
-}
+els.clearCartBtn?.addEventListener('click', () => {
+  cart = []
+  renderCart()
+})
 
-async function placeOrder() {
-  if (!selectedRestaurant) return say('Selecciona un restaurante antes de realizar un pedido.')
-  if (!cart.length) return say('Agrega artículos al carrito primero.')
-  const items = cart.map(c => ({ itemId: c.itemId, name: c.name, priceCents: c.priceCents, qty: c.qty }))
-  try {
-    els.placeOrderBtn.disabled = true
-    const r = await api('/orders', { method: 'POST', body: { restaurantId: selectedRestaurant.id, items } })
-    if (r.ok) {
-      say(`¡Pedido realizado! ID: ${r.data.order.id}, estatus: ${r.data.order.status}`)
-      cart = []
-      renderCart()
-      await refreshOrders()
-      // Scroll to orders section so Pay button is visible
-      try { document.getElementById('ordersList')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
-    } else {
-      say(`No se pudo realizar el pedido: ${r.status} ${r.data.error || ''}`)
-    }
-  } finally {
-    els.placeOrderBtn.disabled = false
+els.reviewOrderBtn?.addEventListener('click', () => {
+  say('Revisando pedido...')
+})
+
+els.placeOrderBtn?.addEventListener('click', async () => {
+  if (!selectedRestaurant) return say('Selecciona un restaurante primero')
+  if (cart.length === 0) return say('Tu carrito está vacío.')
+  const payload = {
+    restaurantId: selectedRestaurant.id,
+    items: cart.map(c => ({ itemId: c.itemId, name: c.name, priceCents: c.priceCents, qty: c.qty }))
   }
-}
-
-// ---------- Payments (mock adapter) ----------
-async function startPaymentFlow(orderId) {
-  if (!orderId) return say('Pedido inválido para pago.')
   try {
-    say(`Iniciando pago para pedido #${orderId}…`)
-    const intent = await api('/payments/intent', { method: 'POST', body: { orderId } })
-    if (!intent.ok) { say(`No se pudo iniciar el pago: ${intent.status} ${intent.data.error || ''}`); return }
-    const clientSecret = intent.data.clientSecret || intent.data.client_secret || `mock_${orderId}`
-    const confirm = await api('/payments/confirm', { method: 'POST', body: { orderId, clientSecret, outcome: 'succeeded' } })
-    if (!confirm.ok) { say(`No se pudo confirmar el pago: ${confirm.status} ${confirm.data.error || ''}`); return }
-    say(`Pago ${confirm.data.paymentStatus} para pedido #${orderId}.`)
-    // Small delay to allow state propagation in memory adapter
-    await new Promise(r => setTimeout(r, 200))
+    const r = await api('/orders', { method: 'POST', body: payload })
+    if (!r.ok) return say(`No se pudo crear el pedido (${r.status})`)
+    say(`Pedido creado (#${r.data.id || '—'})`)
+    cart = []
+    renderCart()
     await refreshOrders()
-    // Ensure user sees updated status
-    try { document.getElementById('ordersList')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) {}
   } catch (e) {
-    say(`Error de pago: ${e?.message || e}`)
+    say(`Error creando pedido: ${e?.message || e}`)
+  }
+})
+
+els.loadRestaurantsBtn?.addEventListener('click', async () => {
+  await loadRestaurants()
+})
+
+async function loadRestaurants() {
+  try {
+    const r = await api('/restaurants')
+    if (!r.ok) return say(`No se pudo cargar restaurantes (${r.status})`)
+    renderRestaurants(r.data.restaurants || [])
+    // Populate RC restaurant selector if present
+    const rcRestaurantEl = document.getElementById('rcRestaurant')
+    if (rcRestaurantEl) {
+      rcRestaurantEl.innerHTML = ''
+      ;(r.data.restaurants || []).forEach(rr => {
+        const opt = document.createElement('option')
+        opt.value = rr.id
+        opt.textContent = rr.name
+        rcRestaurantEl.appendChild(opt)
+      })
+    }
+  } catch (e) {
+    say(`Error cargando restaurantes: ${e?.message || e}`)
   }
 }
-// Ensure globally accessible in case any handler resolves from global scope
-try { window.startPaymentFlow = startPaymentFlow } catch (_) {}
 
-// ---------- Persistence ----------
-function currentUserKey() {
-  const email = localStorage.getItem(userEmailKey) || 'guest'
-  return `cart:${email}`
-}
-
-function persistCart() {
-  try {
-    const key = currentUserKey()
-    const data = { restaurant: selectedRestaurant ? { id: selectedRestaurant.id, name: selectedRestaurant.name } : null, cart }
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch (_) {}
-}
-
-function restoreCart() {
-  try {
-    const key = currentUserKey()
-    const raw = localStorage.getItem(key)
-    if (!raw) return
-    const data = JSON.parse(raw)
-    if (data && Array.isArray(data.cart)) {
-      cart = data.cart
-      renderCart()
-    }
-  } catch (_) {}
-}
+els.refreshOrdersBtn?.addEventListener('click', async () => {
+  await refreshOrders()
+})
 
 async function refreshOrders() {
-  const r = await api('/orders')
-  if (!r.ok) return say(`No se pudieron cargar los pedidos: ${r.status}`)
-  renderOrders(r.data.orders || [])
+  try {
+    const r = await api('/orders')
+    if (!r.ok) return say(`No se pudieron cargar pedidos (${r.status})`)
+    renderOrders(r.data.orders || [])
+  } catch (e) {
+    say(`Error cargando pedidos: ${e?.message || e}`)
+  }
 }
 
-function renderOrders(rows = []) {
+function renderOrders(orders = []) {
   els.ordersList.innerHTML = ''
-  rows.forEach(o => {
+  orders.forEach(o => {
     const li = document.createElement('li')
     li.className = 'mb-2'
     const card = document.createElement('div')
-    card.className = 'bg-surface border border-border rounded-xl p-3 shadow-card'
-    const head = document.createElement('div')
-    head.className = 'flex items-center justify-between'
-    const left = document.createElement('div')
-    left.className = 'font-semibold'
-    left.textContent = `#${o.id} — R${o.restaurantId}`
-    const right = document.createElement('div')
-    right.className = 'flex items-center gap-2'
-    const st = createBadge(o.status, `status status-${o.status}`)
-    const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
-    right.appendChild(st)
-    right.appendChild(pb)
-    head.appendChild(left)
-    head.appendChild(right)
-    card.appendChild(head)
-    if (Array.isArray(o.items) && o.items.length) {
-      const items = document.createElement('div')
-      items.className = 'text-sm text-text-secondary mt-2'
-      items.textContent = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ')
-      card.appendChild(items)
-    }
-    if (!o.paymentStatus || o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Failed') {
-      const payBtn = document.createElement('button')
-      payBtn.className = 'mt-2 bg-primary text-white px-4 py-2 rounded-lg shadow-md'
-      payBtn.textContent = 'Pagar'
-      payBtn.addEventListener('click', async () => {
-        payBtn.disabled = true
-        const prev = payBtn.textContent
-        payBtn.textContent = 'Pagando…'
-        try { await startPaymentFlow(o.id) } finally { payBtn.textContent = prev; payBtn.disabled = false }
-      })
-      card.appendChild(payBtn)
-    }
-    const track = document.createElement('button')
-    track.className = 'mt-2 bg-surface border border-border px-4 py-2 rounded-lg'
-    track.textContent = 'Rastrear'
-    track.addEventListener('click', () => trackOrder(o.id))
-    card.appendChild(track)
+    card.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
+    const info = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'font-medium text-text-primary'
+    title.textContent = `#${o.id} — ${o.restaurantName || ''}`
+    const meta = document.createElement('div')
+    meta.className = 'text-sm text-text-secondary'
+    meta.textContent = `Estatus: ${o.status} — Pago: ${o.paymentStatus}`
+    info.appendChild(title)
+    info.appendChild(meta)
+    const see = document.createElement('button')
+    see.className = 'bg-primary text-white px-3 py-2 rounded-lg shadow-md'
+    see.textContent = 'Ver'
+    see.addEventListener('click', () => say(`Pedido #${o.id} — ${o.status}`))
+    card.appendChild(info)
+    card.appendChild(see)
     li.appendChild(card)
     els.ordersList.appendChild(li)
   })
 }
 
-function nextStatus(cur) {
-  switch (cur) {
-    case 'Submitted': return 'Accepted'
-    case 'Accepted': return 'Preparing'
-    case 'Preparing': return 'ReadyForPickup'
-    default: return null
+// ---------- Restaurant Console (Admin) ----------
+const rc = {
+  list: document.getElementById('rcOrdersList'),
+  statusFilter: document.getElementById('rcStatusFilter'),
+  autoRefresh: document.getElementById('rcAutoRefresh'),
+  interval: null
+}
+
+document.getElementById('rcLoadOrdersBtn')?.addEventListener('click', async () => {
+  const rSel = document.getElementById('rcRestaurant')
+  const rid = rSel?.value
+  if (!rid) return say('Selecciona un restaurante para la consola.')
+  await rcLoadOrders(rid)
+})
+
+rc.statusFilter?.addEventListener('change', () => {
+  const rSel = document.getElementById('rcRestaurant')
+  const rid = rSel?.value
+  if (!rid) return
+  rcLoadOrders(rid)
+})
+
+rc.autoRefresh?.addEventListener('change', () => {
+  if (rc.autoRefresh.checked) startRcAuto()
+  else stopRcAuto()
+})
+
+async function rcLoadOrders(restaurantId) {
+  rcSetLoading(true)
+  try {
+    const r = await api(`/orders?restaurantId=${encodeURIComponent(restaurantId)}`)
+    if (!r.ok) { say(`No se pudieron cargar pedidos (${r.status})`); rcSetLoading(false); return }
+    let rows = r.data.orders || []
+    const f = rc.statusFilter?.value || 'all'
+    if (f && f !== 'all') rows = rows.filter(x => (x.status || '') === f)
+    renderRcOrders(rows)
+  } catch (e) {
+    say(`Error consola restaurante: ${e?.message || e}`)
+  } finally {
+    rcSetLoading(false)
   }
 }
 
-async function advanceOrder(id, next) {
-  const r = await api(`/orders/${id}/status`, { method: 'POST', body: { next } })
-  if (r.ok) {
-    await refreshOrders()
-  } else if (r.status === 409) {
-    say(`Transición inválida: ${r.data.error}`)
-  } else if (r.status === 401) {
-    say('Inicia sesión para realizar esta acción.')
-  } else if (r.status === 403) {
-    say('Prohibido: se requiere rol de personal o administrador para avanzar pedidos.')
-  } else {
-    say(`No se pudo actualizar: ${r.status}`)
+function renderRcOrders(rows = []) {
+  if (!rc.list) return
+  rc.list.innerHTML = ''
+  rows.forEach(o => {
+    const li = document.createElement('li')
+    li.className = 'mb-2'
+    const card = document.createElement('div')
+    card.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
+    const info = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'font-medium text-text-primary'
+    title.textContent = `#${o.id} — ${o.customer || ''}`
+    const meta = document.createElement('div')
+    meta.className = 'text-sm text-text-secondary'
+    meta.textContent = `Estatus: ${o.status} — Pago: ${o.paymentStatus}`
+    info.appendChild(title)
+    info.appendChild(meta)
+
+    const actions = document.createElement('div')
+    actions.className = 'flex items-center gap-2'
+    ;['Accepted','Preparing','ReadyForPickup'].forEach(st => {
+      const b = document.createElement('button')
+      b.className = 'bg-primary text-white px-3 py-2 rounded-lg shadow-md'
+      b.textContent = st
+      b.addEventListener('click', async () => {
+        try {
+          const r = await api(`/orders/${o.id}/status`, { method: 'POST', body: { status: st } })
+          if (!r.ok) return say(`No se pudo actualizar (${r.status})`)
+          await rcLoadOrders(document.getElementById('rcRestaurant')?.value)
+        } catch (e) {
+          say(`Error actualizando: ${e?.message || e}`)
+        }
+      })
+      actions.appendChild(b)
+    })
+
+    card.appendChild(info)
+    card.appendChild(actions)
+    li.appendChild(card)
+    rc.list.appendChild(li)
+  })
+}
+
+function startRcAuto() {
+  if (rc.interval) return
+  try {
+    rc.interval = setInterval(() => {
+      const rid = document.getElementById('rcRestaurant')?.value
+      if (rid) rcLoadOrders(rid)
+    }, 5000)
+  } catch (_) {}
+}
+
+function stopRcAuto() {
+  try {
+    clearInterval(rc.interval)
+  } catch (_) {}
+  rc.interval = null
+}
+
+// ---------- Delivery (dev/demo) ----------
+let delSse = null
+let delUnread = 0
+function updateDeliveryBadge() {
+  const b = document.getElementById('delBell')
+  if (b) b.textContent = String(delUnread || 0)
+}
+async function loadDeliveryAssignments() {
+  try {
+    const r = await api('/delivery/assignments')
+    if (!r.ok) return
+    const list = document.getElementById('delAssignments')
+    if (!list) return
+    list.innerHTML = ''
+    ;(r.data.assignments || []).forEach(a => {
+      const li = document.createElement('li')
+      const row = document.createElement('div')
+      row.className = 'flex items-center justify-between gap-3 bg-surface border border-border rounded-xl p-3 shadow-card'
+      const info = document.createElement('div')
+      const title = document.createElement('div')
+      title.className = 'font-medium text-text-primary'
+      title.textContent = `Asignación #${a.id} — Pedido #${a.orderId}`
+      const meta = document.createElement('div')
+      meta.className = 'text-sm text-text-secondary'
+      meta.textContent = `Estatus: ${a.status}`
+      info.appendChild(title)
+      info.appendChild(meta)
+      const actions = document.createElement('div')
+      actions.className = 'flex items-center gap-2'
+      const btn = document.createElement('button')
+      btn.className = 'bg-primary text-white px-3 py-2 rounded-lg shadow-md'
+      btn.textContent = 'Ver'
+      btn.addEventListener('click', () => say(`Asignación #${a.id} — ${a.status}`))
+      actions.appendChild(btn)
+      row.appendChild(info)
+      row.appendChild(actions)
+      li.appendChild(row)
+      list.appendChild(li)
+    })
+  } catch (_) {}
+}
+function startDeliverySse() {
+  stopDeliverySse()
+  const token = localStorage.getItem(tokenKey)
+  if (!token || !apiBase) return
+  const url = `${apiBase}/delivery/events?token=${encodeURIComponent(token)}`
+  delSse = new EventSource(url)
+  delSse.onmessage = (ev) => {
+    try {
+      const evt = JSON.parse(ev.data)
+      delUnread += 1
+      updateDeliveryBadge()
+      say(`[DELIVERY] ${evt.message || evt.type}`)
+      const list = document.getElementById('delNotifications')
+      if (list) {
+        const li = document.createElement('li')
+        li.textContent = `${new Date(evt.ts || Date.now()).toLocaleTimeString()} — ${evt.type}: ${evt.message || evt.type}`
+        list.prepend(li)
+      }
+      if (evt.type === 'assignment_created') loadDeliveryAssignments().catch(()=>{})
+    } catch (_) {}
   }
+  delSse.addEventListener('ping', () => {})
+  delSse.onerror = () => { setTimeout(() => startDeliverySse(), 3000) }
+}
+function stopDeliverySse() {
+  if (delSse) { try { delSse.close() } catch (_) {} delSse = null }
 }
 
 // ---------- Tracking (SSE) ----------
@@ -768,751 +1023,12 @@ let trackingId = null
 let map = null
 let mapMarker = null
 
-// Render tracking stepper based on order status (used by trackOrder)
-function renderTrackingSteps(status) {
-  try {
-    const steps = [
-      { key: 'Submitted', label: 'Pedido recibido' },
-      { key: 'Accepted', label: 'Aceptado' },
-      { key: 'Preparing', label: 'Preparando' },
-      { key: 'ReadyForPickup', label: 'Listo para recoger' },
-      { key: 'Delivered', label: 'Entregado' },
-    ]
-    const ul = document.getElementById('trackingSteps')
-    if (!ul) return
-    ul.innerHTML = ''
-    let activeFound = false
-    steps.forEach(s => {
-      const li = document.createElement('li')
-      const isActive = !activeFound
-      if (s.key === status) activeFound = true
-      li.className = `flex items-center gap-2 py-1 ${isActive ? 'text-text-primary' : 'text-text-secondary'}`
-      const dot = document.createElement('span')
-      dot.className = `inline-block w-2 h-2 rounded-full ${isActive ? 'bg-primary' : 'bg-border'}`
-      const label = document.createElement('span')
-      label.textContent = s.label
-      li.appendChild(dot)
-      li.appendChild(label)
-      ul.appendChild(li)
-    })
-    // Simple ETA heuristic
-    const eta = document.getElementById('trackingEta')
-    if (eta) {
-      const byStatus = { Submitted: '25m', Accepted: '20m', Preparing: '15m', ReadyForPickup: '10m', Delivered: '0m' }
-      eta.textContent = byStatus[status] || '—'
-    }
-  } catch (_) {}
-}
-
 function trackOrder(orderId) {
   stopTracking()
   if (!apiBase) return say('API base no configurado')
   trackingId = orderId
   els.trackingOrder.textContent = `#${orderId}`
   els.trackingStatus.textContent = 'Conectando...'
-  try { const eta = document.getElementById('trackingEta'); if (eta) eta.textContent = '—' } catch(_) {}
-  renderTrackingSteps('Submitted')
   els.trackingCoords.textContent = ''
   ensureMap()
-  const token = localStorage.getItem(tokenKey)
-  const url = `${apiBase}/tracking/${orderId}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
-  es = new EventSource(url)
-  es.onmessage = (ev) => {
-    try {
-      const data = JSON.parse(ev.data)
-      if (data.type === 'hello') {
-        els.trackingStatus.textContent = `Estatus: ${data.status}`
-        renderTrackingSteps(String(data.status || ''))
-      } else if (data.type === 'location') {
-        els.trackingCoords.textContent = `Lat ${data.lat.toFixed(6)}, Lng ${data.lng.toFixed(6)} @ ${new Date(data.ts).toLocaleTimeString()}`
-        updateMap(data.lat, data.lng)
-      } else if (data.type === 'complete') {
-        els.trackingStatus.textContent = 'Entregado (simulación completa)'
-        stopTracking()
-      }
-    } catch (_) {
-      // ignore malformed SSE chunk
-    }
-  }
-  es.onerror = () => {
-    els.trackingStatus.textContent = 'Error de conexión'
-    // Lightweight retry in case of transient network/CORS issues (e.g., simulator)
-    try { es.close() } catch(_) {}
-    if (trackingId === orderId) {
-      setTimeout(() => {
-        // Re-init only if still on same order and apiBase present
-        if (!apiBase || trackingId !== orderId) return
-        trackOrder(orderId)
-      }, 1500)
-    }
-  }
-}
-
-function stopTracking() {
-  if (es) {
-    es.close()
-    es = null
-  }
-  if (trackingId) {
-    trackingId = null
-  }
-  els.trackingStatus.textContent = 'Sin rastreo.'
-  els.trackingOrder.textContent = '—'
-  els.trackingCoords.textContent = ''
-  resetMap()
-}
-
-function ensureMap() {
-  if (typeof L === 'undefined') return
-  const el = document.getElementById('map')
-  if (!el) return
-  if (!map) {
-    map = L.map(el).setView([18.936, -99.223], 14)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map)
-  }
-}
-
-function updateMap(lat, lng) {
-  if (!map) return
-  const pos = [lat, lng]
-  if (!mapMarker) {
-    mapMarker = L.marker(pos).addTo(map)
-  } else {
-    mapMarker.setLatLng(pos)
-  }
-  map.setView(pos, map.getZoom() || 14)
-}
-
-function resetMap() {
-  if (mapMarker) {
-    map.removeLayer(mapMarker)
-    mapMarker = null
-  }
-}
-
-// ---------- Admin (read-only) ----------
-async function loadAdmin() {
-  if (currentRole !== 'admin') return
-  try {
-    const [m, u, r, o, p] = await Promise.all([
-      api('/admin/metrics'),
-      api('/admin/users'),
-      api('/admin/restaurants'),
-      api('/admin/orders'),
-      loadAdminPartners()
-    ])
-    if (m.ok) renderAdminMetrics(m.data.metrics)
-    if (u.ok) renderAdminUsers(u.data.users || [])
-    if (r.ok) renderAdminRestaurants(r.data.restaurants || [])
-    if (o.ok) renderAdminOrders(o.data.orders || [])
-  } catch (e) {
-    log(`admin load error: ${e.message}`)
-  }
-}
-
-function renderAdminMetrics(metrics = {}) {
-  const { usersTotal = 0, restaurantsTotal = 0, ordersTotal = 0, revenueCents = 0 } = metrics
-  const u = document.getElementById('admUsers')
-  const r = document.getElementById('admRestaurants')
-  const o = document.getElementById('admOrders')
-  const rev = document.getElementById('admRevenue')
-  if (u) u.textContent = String(usersTotal)
-  if (r) r.textContent = String(restaurantsTotal)
-  if (o) o.textContent = String(ordersTotal)
-  if (rev) rev.textContent = formatPrice(Number(revenueCents) || 0)
-}
-
-function renderAdminUsers(rows = []) {
-  const list = document.getElementById('admUsersList')
-  if (!list) return
-  list.innerHTML = ''
-  rows.forEach(x => {
-    const li = document.createElement('li')
-    li.textContent = `#${x.id} — ${x.email} (${x.role})`
-    list.appendChild(li)
-  })
-}
-
-function renderAdminRestaurants(rows = []) {
-  const list = document.getElementById('admRestaurantsList')
-  if (!list) return
-  list.innerHTML = ''
-  rows.forEach(x => {
-    const li = document.createElement('li')
-    li.textContent = `#${x.id} — ${x.name}`
-    list.appendChild(li)
-  })
-}
-
-function renderAdminOrders(rows = []) {
-  const list = document.getElementById('admOrdersList')
-  if (!list) return
-  list.innerHTML = ''
-  rows.forEach(o => {
-    const li = document.createElement('li')
-    const st = createBadge(o.status, `status status-${o.status}`)
-    const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
-    li.textContent = `#${o.id} — R${o.restaurantId} `
-    li.appendChild(st)
-    li.appendChild(pb)
-    // Assign to partner controls
-    const ctrl = document.createElement('div')
-    ctrl.className = 'row'
-    const sel = document.createElement('select')
-    const partners = (window.__adminPartners || [])
-    partners.forEach(p => {
-      const opt = document.createElement('option')
-      opt.value = p.id
-      opt.textContent = p.name ? `#${p.id} — ${p.name}` : `#${p.id}`
-      sel.appendChild(opt)
-    })
-    const btn = document.createElement('button')
-    btn.textContent = 'Assign'
-    btn.title = 'Assign this order to the selected delivery partner'
-    btn.addEventListener('click', async () => {
-      if (!sel.value) { say('Select a partner first'); return }
-      btn.disabled = true
-      try {
-        const r = await assignOrderToPartner(o.id, Number(sel.value))
-        if (r) say(`Assigned order #${o.id} to partner #${sel.value}`)
-      } finally {
-        btn.disabled = false
-      }
-    })
-    ctrl.appendChild(sel)
-    ctrl.appendChild(btn)
-    li.appendChild(ctrl)
-    list.appendChild(li)
-  })
-}
-
-async function loadAdminPartners() {
-  try {
-    const r = await api('/admin/delivery-partners')
-    if (r.ok) {
-      window.__adminPartners = r.data.partners || []
-    } else {
-      window.__adminPartners = []
-    }
-    return window.__adminPartners
-  } catch (_) {
-    window.__adminPartners = []
-    return []
-  }
-}
-
-async function assignOrderToPartner(orderId, partnerId) {
-  try {
-    const r = await api('/admin/assignments', { method: 'POST', body: { orderId, partnerId } })
-    if (!r.ok) { say(`Failed to assign: ${r.status}`); return false }
-    return true
-  } catch (e) {
-    log(`assign error: ${e.message}`)
-    return false
-  }
-}
-
-// Admin notifications (SSE)
-let adminEs = null
-let adminUnread = 0
-
-function showAdminToast(msg) {
-  say(`[ADMIN] ${msg}`)
-}
-
-function updateAdminBadge() {
-  const u = document.getElementById('admUsers') // reuse badge row to show count subtly
-  if (!u) return
-  const badge = document.getElementById('admBell')
-  if (badge) badge.textContent = String(adminUnread)
-}
-
-function startAdminSse() {
-  try { stopAdminSse() } catch (_) {}
-  if (currentRole !== 'admin') return
-  const token = localStorage.getItem(tokenKey)
-  if (!token) return
-  const url = `${apiBase}/admin/events?token=${encodeURIComponent(token)}`
-  adminEs = new EventSource(url)
-  adminEs.onmessage = (ev) => {
-    try {
-      const evt = JSON.parse(ev.data)
-      adminUnread += 1
-      updateAdminBadge()
-      const m = evt.message || evt.type
-      showAdminToast(m)
-      // Append to a simple list if present
-      const list = document.getElementById('admNotifications')
-      if (list) {
-        const li = document.createElement('li')
-        li.textContent = `${new Date(evt.ts || Date.now()).toLocaleTimeString()} — ${evt.type}: ${m}`
-        list.prepend(li)
-      }
-    } catch (_) {}
-  }
-  adminEs.addEventListener('ping', () => {/* heartbeat */})
-  adminEs.onerror = () => {
-    // attempt a lightweight reconnect after a delay
-    setTimeout(() => { startAdminSse() }, 3000)
-  }
-}
-
-function stopAdminSse() {
-  if (adminEs) { try { adminEs.close() } catch (_) {} adminEs = null }
-}
-
-// ---------- Delivery (partner) ----------
-let delEs = null
-let delUnread = 0
-let delLocTimer = null
-
-async function loadDeliveryAssignments() {
-  try {
-    const r = await api('/delivery/assignments')
-    if (!r.ok) return say(`Failed to load assignments: ${r.status}`)
-    renderDeliveryAssignments(r.data.assignments || [])
-  } catch (e) { log(`delivery load error: ${e.message}`) }
-}
-
-function renderDeliveryAssignments(rows = []) {
-  const list = document.getElementById('delAssignments')
-  if (!list) return
-  list.innerHTML = ''
-  rows.forEach(a => {
-    const li = document.createElement('li')
-    const title = document.createElement('div')
-    title.textContent = `Assignment #${a.id} — Order #${a.orderId} — ${a.status}`
-    li.appendChild(title)
-    const row = document.createElement('div')
-    row.className = 'row'
-    const accept = document.createElement('button')
-    accept.textContent = 'Accept'
-    accept.disabled = a.status !== 'Assigned'
-    accept.addEventListener('click', async () => {
-      accept.disabled = true
-      try { await acceptAssignment(a.id); await loadDeliveryAssignments() } finally { accept.disabled = false }
-    })
-    const picked = document.createElement('button')
-    picked.textContent = 'Picked Up'
-    picked.disabled = a.status !== 'Accepted'
-    picked.addEventListener('click', async () => {
-      picked.disabled = true
-      try { await updateAssignmentStatus(a.id, 'PickedUp'); await loadDeliveryAssignments() } finally { picked.disabled = false }
-    })
-    const delivered = document.createElement('button')
-    delivered.textContent = 'Delivered'
-    delivered.disabled = !(a.status === 'PickedUp')
-    delivered.addEventListener('click', async () => {
-      delivered.disabled = true
-      try { await updateAssignmentStatus(a.id, 'Delivered'); await loadDeliveryAssignments() } finally { delivered.disabled = false }
-    })
-    row.appendChild(accept)
-    row.appendChild(picked)
-    row.appendChild(delivered)
-    li.appendChild(row)
-    list.appendChild(li)
-  })
-}
-
-async function acceptAssignment(id) {
-  const r = await api(`/delivery/assignments/${encodeURIComponent(id)}/accept`, { method: 'POST' })
-  if (!r.ok) say(`Failed to accept: ${r.status}`)
-}
-
-async function updateAssignmentStatus(id, status) {
-  const r = await api(`/delivery/assignments/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status } })
-  if (!r.ok) say(`Failed to set status: ${r.status}`)
-}
-
-function updateDeliveryBadge() {
-  const b = document.getElementById('delBell')
-  if (b) b.textContent = String(delUnread)
-}
-
-function startDeliverySse() {
-  stopDeliverySse()
-  if (currentRole !== 'delivery') return
-  const token = localStorage.getItem(tokenKey)
-  if (!token) return
-  const url = `${apiBase}/delivery/events?token=${encodeURIComponent(token)}`
-  delEs = new EventSource(url)
-  delEs.onmessage = (ev) => {
-    try {
-      const evt = JSON.parse(ev.data)
-      delUnread += 1
-      updateDeliveryBadge()
-      const msg = evt.message || evt.type
-      say(`[DELIVERY] ${msg}`)
-      const list = document.getElementById('delNotifications')
-      if (list) {
-        const li = document.createElement('li')
-        li.textContent = `${new Date(evt.ts || Date.now()).toLocaleTimeString()} — ${evt.type}: ${msg}`
-        list.prepend(li)
-      }
-      if (evt.type === 'assignment_created') loadDeliveryAssignments().catch(()=>{})
-    } catch (_) {}
-  }
-  delEs.addEventListener('ping', () => {})
-  delEs.onerror = () => { setTimeout(() => startDeliverySse(), 3000) }
-}
-
-function stopDeliverySse() {
-  if (delEs) { try { delEs.close() } catch (_) {} delEs = null }
-}
-
-function stopDeliveryLocation() {
-  if (delLocTimer) { clearInterval(delLocTimer); delLocTimer = null }
-}
-
-function startDeliveryLocation() {
-  stopDeliveryLocation()
-  if (currentRole !== 'delivery') return
-  const checkbox = document.getElementById('delShareLocation')
-  if (!checkbox?.checked) return
-  const pickActiveOrderId = async () => {
-    try {
-      const r = await api('/delivery/assignments')
-      if (!r.ok) return null
-      const rows = r.data.assignments || []
-      // Prefer currently active statuses
-      const preferred = rows.find(a => a.status === 'PickedUp') || rows.find(a => a.status === 'Accepted') || rows.find(a => a.status === 'Assigned')
-      return preferred ? Number(preferred.orderId) : null
-    } catch (_) { return null }
-  }
-  const send = async (coords) => {
-    try {
-      const lat = Number(coords?.latitude ?? 18.936)
-      const lng = Number(coords?.longitude ?? -99.223)
-      const orderId = await pickActiveOrderId()
-      await api('/delivery/location', { method: 'POST', body: { orderId, lat, lng } })
-    } catch (_) {}
-  }
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(p => send(p.coords), () => send(null), { enableHighAccuracy: true, maximumAge: 10000 })
-  } else {
-    send(null)
-  }
-  delLocTimer = setInterval(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(p => send(p.coords), () => send(null), { enableHighAccuracy: true, maximumAge: 10000 })
-    } else {
-      send(null)
-    }
-  }, 10000)
-}
-
-// ---------- UI wiring ----------
-els.loadRestaurantsBtn?.addEventListener('click', loadRestaurants)
-els.clearCartBtn?.addEventListener('click', () => { cart = []; renderCart() })
-els.reviewOrderBtn?.addEventListener('click', () => say(summarizeCart()))
-els.placeOrderBtn?.addEventListener('click', placeOrder)
-els.refreshOrdersBtn?.addEventListener('click', refreshOrders)
-els.stopTrackingBtn?.addEventListener('click', stopTracking)
-els.chatSendBtn?.addEventListener('click', onChatSend)
-els.chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') onChatSend() })
-document.getElementById('admRefreshBtn')?.addEventListener('click', () => { loadAdmin().catch(()=>{}) })
-document.getElementById('delRefreshBtn')?.addEventListener('click', () => { loadDeliveryAssignments().catch(()=>{}) })
-document.getElementById('delShareLocation')?.addEventListener('change', () => { if (document.getElementById('delShareLocation').checked) startDeliveryLocation(); else stopDeliveryLocation() })
-
-// ---------- Missing functions (marketing and core) ----------
-async function loadRestaurants() {
-  try {
-    const r = await api('/restaurants')
-    if (!r.ok) { say(`No se pudieron cargar restaurantes (${r.status})`); return }
-    const rows = Array.isArray(r.data) ? r.data : (r.data.restaurants || [])
-    renderRestaurants(rows)
-  } catch (e) {
-    say(`Error al cargar restaurantes: ${e.message}`)
-  }
-}
-
-function onChatSend() {
-  const text = (els.chatInput?.value || '').trim()
-  if (!text) return
-  els.chatInput.value = ''
-  say(`You: ${text}`)
-  handleChatCommand(text)
-}
-
-async function handleChatCommand(text) {
-  const t = text.toLowerCase()
-  if (t.startsWith('show restaurants') || t === 'restaurants' || t === 'show menus' || t === 'show menu') {
-    await loadRestaurants()
-    say('Loaded restaurants. Tap one above or type "menu <name>"')
-    return
-  }
-  if (t.startsWith('menu ')) {
-    const name = t.replace(/^menu\s+/, '').trim()
-    const r = await api('/restaurants')
-    if (r.ok) {
-      const found = (r.data.restaurants || []).find(x => x.name.toLowerCase().includes(name))
-      if (found) {
-        await selectRestaurant(found)
-        say(`Showing menu for ${found.name}`)
-      } else {
-        say(`Could not find restaurant matching "${name}"`)
-      }
-    } else {
-      say('Failed to load restaurants')
-    }
-    return
-  }
-  if (t.startsWith('add ')) {
-    // patterns: add 2 tacos | add tacos | add 3 "taco al pastor"
-    const m = t.match(/^add\s+(\d+)\s+(.+)$/) || t.match(/^add\s+(.+)$/)
-    let qty = 1
-    let itemName = ''
-    if (m) {
-      if (m.length === 3) { qty = parseInt(m[1], 10) || 1; itemName = m[2] } else { itemName = m[1] }
-      const it = (lastMenuItems || []).find(x => x.name.toLowerCase().includes(itemName))
-      if (!it) return say(`Item not found: ${itemName}`)
-      for (let i = 0; i < qty; i++) addToCart(it)
-      say(`Added ${qty} x ${it.name}`)
-    } else {
-      say('Try: add 2 tacos')
-    }
-    return
-  }
-  if (t.startsWith('remove ') || t.startsWith('delete ')) {
-    const m = t.match(/^(?:remove|delete)\s+(\d+)\s+(.+)$/) || t.match(/^(?:remove|delete)\s+(.+)$/)
-    let qty = 1
-    let itemName = ''
-    if (m) {
-      if (m.length === 3) { qty = parseInt(m[1], 10) || 1; itemName = m[2] } else { itemName = m[1] }
-      const idx = cart.findIndex(c => c.name.toLowerCase().includes(itemName))
-      if (idx === -1) return say(`Item not in cart: ${itemName}`)
-      cart[idx].qty -= qty
-      if (cart[idx].qty <= 0) cart.splice(idx, 1)
-      renderCart()
-      say(`Removed ${qty} x ${itemName}`)
-    } else {
-      say('Try: remove 1 tacos')
-    }
-    return
-  }
-  if (t === 'clear cart') {
-    cart = []
-    renderCart()
-    say('Cart cleared')
-    return
-  }
-  if (t === 'summary' || t === 'review') {
-    say(summarizeCart())
-    return
-  }
-  if (t === 'place order' || t === 'order') {
-    await placeOrder()
-    return
-  }
-  say("I didn't understand. Try: 'show restaurants', 'menu <name>', 'add 2 tacos', 'summary', 'place order'.")
-}
-
-// ---------- Restaurant Console ----------
-// Elements
-const rc = {
-  restaurant: document.getElementById('rcRestaurant'),
-  loadBtn: document.getElementById('rcLoadOrdersBtn'),
-  statusFilter: document.getElementById('rcStatusFilter'),
-  autoRefresh: document.getElementById('rcAutoRefresh'),
-  list: document.getElementById('rcOrdersList')
-}
-
-async function initRestaurantConsole() {
-  try {
-    const r = await api('/restaurants')
-    if (!r.ok) return
-    rc.restaurant.innerHTML = ''
-    ;(r.data.restaurants || []).forEach(x => {
-      const opt = document.createElement('option')
-      opt.value = x.id
-      opt.textContent = `${x.name}`
-      rc.restaurant.appendChild(opt)
-    })
-    updateRoleUI()
-  } catch (_) {
-    // ignore errors during initial load
-  }
-}
-
-async function rcLoadOrders() {
-  const rid = rc.restaurant.value
-  if (!isStaff()) {
-    return say('Restaurant Console is available to staff or admin only. Please login as staff/admin.')
-  }
-  if (!rid) {
-    return say('Please select a restaurant to load orders.')
-  }
-  try {
-    rc.loadBtn.disabled = true
-    const r = await api(`/orders?restaurantId=${encodeURIComponent(rid)}`)
-    if (!r.ok) return say(`Failed to load orders for restaurant ${rid}: ${r.status}`)
-    const all = r.data.orders || []
-    const f = (rc.statusFilter?.value || 'all')
-    const rows = f === 'all' ? all : all.filter(x => x.status === f)
-    renderRcOrders(rows)
-  } finally {
-    rc.loadBtn.disabled = !isStaff()
-  }
-}
-
-let rcAutoTimer = null
-
-function stopRcAuto() {
-  if (rcAutoTimer) {
-    clearInterval(rcAutoTimer)
-    rcAutoTimer = null
-  }
-}
-
-function startRcAuto() {
-  stopRcAuto()
-  if (!isStaff()) return
-  if (!rc.autoRefresh?.checked) return
-  rcAutoTimer = setInterval(() => {
-    rcLoadOrders().catch(() => {})
-  }, 5000)
-}
-
-function renderRcOrders(rows = []) {
-  rc.list.innerHTML = ''
-  rows.forEach(o => {
-    const li = document.createElement('li')
-    const title = document.createElement('div')
-    title.textContent = `#${o.id}`
-    const st = createBadge(o.status, `status status-${o.status}`)
-    st.style.marginLeft = '8px'
-    const pb = createBadge(o.paymentStatus || 'Unpaid', `status pay-${o.paymentStatus || 'Unpaid'}`)
-    pb.style.marginLeft = '6px'
-    title.appendChild(st)
-    title.appendChild(pb)
-    li.appendChild(title)
-    const items = document.createElement('div')
-    items.className = 'muted'
-    items.textContent = (o.items || []).map(i => `${i.name} x${i.qty}`).join(', ')
-    li.appendChild(items)
-    const next = nextStatus(o.status)
-    if (next) {
-      const btn = document.createElement('button')
-      btn.textContent = `Avanzar → ${next}`
-      btn.addEventListener('click', async () => {
-        btn.disabled = true
-        try { await advanceOrder(o.id, next); await rcLoadOrders() } finally { btn.disabled = false }
-      })
-      li.appendChild(btn)
-    }
-    // When order is ready for pickup, allow staff/admin to track driver's live location
-    if (o.status === 'ReadyForPickup') {
-      const trackBtn = document.createElement('button')
-      trackBtn.textContent = 'Rastrear repartidor'
-      trackBtn.title = 'Abrir ubicación en vivo del repartidor para este pedido'
-      trackBtn.addEventListener('click', () => trackOrder(o.id))
-      li.appendChild(trackBtn)
-    }
-    rc.list.appendChild(li)
-  })
-}
-
-rc.loadBtn?.addEventListener('click', rcLoadOrders)
-initRestaurantConsole()
-
-// RC filter + auto-refresh wiring
-rc.statusFilter?.addEventListener('change', () => { if (isStaff()) rcLoadOrders() })
-rc.autoRefresh?.addEventListener('change', () => { if (rc.autoRefresh.checked) startRcAuto(); else stopRcAuto() })
-
-els.registerBtn.addEventListener('click', async () => {
-  try {
-    const email = els.email.value.trim()
-    const password = els.password.value
-    const role = (els.role?.value) || 'client'
-    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say('Ingresa un correo válido.')
-    if (!password || password.length < 6) return say('La contraseña debe tener al menos 6 caracteres.')
-    if (!['client','staff','admin'].includes(role)) return say('Rol inválido.')
-    const r = await api('/auth/register', { method: 'POST', body: { email, password, role } })
-    if (r.ok) {
-      const emailShown = r.data.email || email
-      try { localStorage.setItem(userEmailKey, emailShown) } catch (_) {}
-      say(`Registro exitoso para ${emailShown}. Ahora inicia sesión.`)
-    } else {
-      say(`Registro fallido: ${r.status} ${r.data.error || ''}`)
-    }
-  } catch (e) {
-    log(`register error: ${e.message}`)
-  }
-})
-
-els.loginBtn.addEventListener('click', async () => {
-  try {
-    const email = els.email.value.trim()
-    const password = els.password.value
-    if (!email) return say('Por favor ingresa tu correo electrónico.')
-    if (!password) return say('Por favor ingresa tu contraseña.')
-    if (!apiBase) { say('Configura la API Base (IP de tu computadora) antes de iniciar sesión.'); return }
-    const r = await api('/auth/login', { method: 'POST', body: { email, password } })
-    if (r.ok && r.data.token) {
-      localStorage.setItem(tokenKey, r.data.token)
-      const me = await api('/me')
-      if (me.ok) {
-        try { localStorage.setItem(userEmailKey, me.data.user.email || '') } catch (_) {}
-        try { currentRole = (me.data.user.role || '').toLowerCase(); localStorage.setItem(userRoleKey, currentRole) } catch (_) {}
-        say(`Hola ${me.data.user.email} (rol: ${me.data.user.role})`)
-        updateRoleUI(); startRcAuto(); if (currentRole === 'admin') { await loadAdmin() }
-      }
-    } else {
-      say(`Inicio de sesión fallido: ${r.status} ${r.data.error || ''}`)
-    }
-  } catch (e) {
-    log(`login error: ${e.message}`)
-  }
-})
-
-els.logoutBtn.addEventListener('click', async () => {
-  try {
-    const r = await api('/auth/logout', { method: 'POST' })
-    if (r.ok) {
-      localStorage.removeItem(tokenKey)
-      try { localStorage.removeItem(userRoleKey); currentRole = ''; updateRoleUI() } catch (_) {}
-      stopRcAuto()
-      stopAdminSse()
-      adminUnread = 0
-      updateAdminBadge()
-      stopDeliverySse()
-      stopDeliveryLocation()
-      delUnread = 0
-      updateDeliveryBadge()
-      say('Sesión cerrada')
-    } else {
-      say(`Cerrar sesión falló: ${r.status} ${r.data.error || ''}`)
-    }
-  } catch (e) {
-    log(`error cerrar sesión: ${e.message}`)
-  }
-})
-
-// Welcome message
-try {
-  const onboarded = localStorage.getItem('onboarded')
-  if (!onboarded) {
-    say('Welcome to Marshanta!')
-    say('How to order: 1) Load restaurants, 2) Pick a restaurant and add items, 3) Place order, 4) Pay and track delivery.')
-    say('Crea una cuenta o inicia sesión para continuar.')
-    localStorage.setItem('onboarded', '1')
-  } else {
-    const lastEmail = localStorage.getItem(userEmailKey)
-    if (lastEmail) say(`¡Bienvenido de nuevo, ${lastEmail}!`)
-    else say('¡Bienvenido de nuevo!')
-  }
-} catch (_) {
-  // storage may be unavailable; proceed without persistence
-  say('¡Bienvenido a Marshanta!')
-}
-
-// Register service worker
-// Register SW only on web (avoid stale caching on native Capacitor)
-try {
-  if (!isNativeApp() && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js').then(() => log('SW registered')).catch(e => log(`SW error: ${e.message}`))
-  }
-} catch (_) {}
+  const token = localStorage.getItem(tokenKey

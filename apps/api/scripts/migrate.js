@@ -28,15 +28,17 @@ async function main() {
   // Enable SSL for hosted Postgres providers like Supabase.
   // Parse URL explicitly to avoid conflicts between connectionString params and pg's ssl config.
   const u = new URL(url)
+  const sslmode = (u.searchParams.get('sslmode') || '').toLowerCase()
+  const useSsl = sslmode === 'require' || sslmode === ''
   const cfg = {
     host: u.hostname,
     port: Number(u.port || 5432),
     database: u.pathname?.replace(/^\//, '') || 'postgres',
     user: decodeURIComponent(u.username || ''),
     password: decodeURIComponent(u.password || ''),
-    ssl: { rejectUnauthorized: false, require: true }
+    ssl: useSsl ? { rejectUnauthorized: false, require: true } : false
   }
-  console.log(`Connecting to ${cfg.host}:${cfg.port}/${cfg.database} as ${cfg.user} (ssl=${cfg.ssl?.require ? 'on' : 'off'})`)
+  console.log(`Connecting to ${cfg.host}:${cfg.port}/${cfg.database} as ${cfg.user} (ssl=${useSsl ? 'on' : 'off'})`)
   const client = new Client(cfg)
   await client.connect()
 

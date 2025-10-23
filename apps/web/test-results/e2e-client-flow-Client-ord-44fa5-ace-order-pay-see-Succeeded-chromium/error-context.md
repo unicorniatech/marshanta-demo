@@ -1,0 +1,55 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - img "Marshanta"
+  - text: "Marshanta — Tu comida favorita, a tu puerta api: sin conexión"
+  - button "Configurar API"
+  - text: "rol: invitado"
+- main:
+  - heading "Pide comida a tu manera" [level=2]
+  - paragraph: Explora menús, ordena en segundos y rastrea a tu repartidor en tiempo real.
+  - button "Empieza tu pedido"
+  - button "¿Cómo funciona?"
+  - img "Logo"
+  - img "Tacos"
+  - img "Hamburguesa"
+  - img "Pizza"
+  - img "Sushi"
+  - img "Ensalada"
+  - img "Postre"
+  - strong: Checkout rápido
+  - paragraph: Repite tus favoritos en un toque.
+  - strong: Rastreo en vivo
+  - paragraph: Conoce el ETA y la ruta del repartidor.
+  - strong: Precio claro
+  - paragraph: Transparencia del carrito a tu puerta.
+  - strong: Negocios locales
+  - paragraph: Apoya a tu comunidad.
+  - heading "Restaurantes" [level=3]
+  - button "Ver restaurantes"
+  - list
+  - heading "Menú" [level=3]
+  - paragraph: Ningún restaurante seleccionado.
+  - list
+  - heading "Carrito" [level=3]
+  - list
+  - paragraph:
+    - strong: "Total:"
+    - text: $0.00
+  - button "Vaciar carrito"
+  - button "Revisar pedido"
+  - button "Realizar pedido"
+  - button "Actualizar pedidos"
+  - heading "Pedidos" [level=3]
+  - list
+  - heading "Rastreo" [level=3]
+  - paragraph: "Pedido activo: —"
+  - text: Sin rastreo.
+  - button "Detener rastreo"
+- navigation "Primary":
+  - button "🏠 Inicio"
+  - button "🍽️ Restaurantes"
+  - button "🛒 Carrito"
+  - button "📦 Pedidos"
+```

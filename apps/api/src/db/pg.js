@@ -2,10 +2,20 @@
 // Uses env DATABASE_URL and implements the neutral adapter interface
 import { Pool } from 'pg'
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-})
+function makePool() {
+  const cs = process.env.DATABASE_URL || ''
+  try {
+    const u = new URL(cs)
+    const sslmode = (u.searchParams.get('sslmode') || '').toLowerCase()
+    const ssl = sslmode === 'disable' ? false : { rejectUnauthorized: false }
+    return new Pool({ connectionString: cs, ssl })
+  } catch (_) {
+    // Fallback: default to SSL disabled if URL parse fails
+    return new Pool({ connectionString: cs, ssl: false })
+  }
+}
+
+const pool = makePool()
 
 async function q(text, params = []) {
   const client = await pool.connect()

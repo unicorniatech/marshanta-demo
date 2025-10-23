@@ -112,6 +112,34 @@ The web app resolves `apiBase` as follows (see `apps/web/main.js`):
 - Else if running on `localhost`/`127.0.0.1`, use `http://localhost:4000`.
 - Else (e.g., device build), require a configured base.
 
+### Remote testing via tunnel (Cloudflare Tunnel)
+
+When testing on cellular networks, expose the local API over HTTPS with Cloudflare Tunnel. This has been reliable across carriers.
+
+Commands (from repo root):
+
+```bash
+# Ensure API is running on :4000 and Postgres on :5433
+PORT=4000 DB_DRIVER=pg DATABASE_URL='postgresql://marshanta:marshanta@localhost:5433/marshanta?sslmode=disable' \
+  node apps/api/src/index.js
+
+# Start a quick Cloudflare tunnel to the API (install once via: brew install cloudflared)
+cloudflared tunnel --url http://localhost:4000 --no-autoupdate
+# Copy the printed https://*.trycloudflare.com URL
+```
+
+On each device (phones/tablets):
+
+- Open the app → `Configurar API`.
+- Tap `Borrar`, paste the Cloudflare URL, then `Guardar`.
+- Tap `Probar API` and confirm status 200 with JSON.
+- The badge flips to `api: en línea` within ~5–10s.
+- Sign in. For restaurants, use a `client` role account.
+
+Troubleshooting:
+
+- If Safari on the device does not show JSON for `/healthz`, disable VPN/ad blockers/DNS filters, or use LAN IP `http://<your-mac-ip>:4000` on the same Wi‑Fi.
+
 ## CI
 
 GitHub Actions workflow `ci.yml` runs on PRs and main. Key details:

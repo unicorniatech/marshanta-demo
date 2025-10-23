@@ -8,7 +8,16 @@ export default async function (req) {
   if (menu.status !== 200) throw new Error(`menu ${menu.status}`)
   const item = menu.body.items[0] || { name: 'Custom', priceCents: 1000, id: 0 }
 
-  const create = await req.post('/orders').send({ restaurantId: r.id, items: [{ itemId: item.id || 0, name: item.name, priceCents: item.priceCents, qty: 1 }] })
+  // client auth
+  const email = `client_${Date.now()}@test.local`
+  const reg = await req.post('/auth/register').send({ email, password: 'pw', role: 'client' })
+  if (reg.status !== 201) throw new Error(`register client ${reg.status}`)
+  const login = await req.post('/auth/login').send({ email, password: 'pw' })
+  if (login.status !== 200) throw new Error(`login client ${login.status}`)
+  const token = login.body?.token
+  if (!token) throw new Error('expected client token')
+
+  const create = await req.post('/orders').set('Authorization', `Bearer ${token}`).send({ restaurantId: r.id, items: [{ itemId: item.id || 0, name: item.name, priceCents: item.priceCents, qty: 1 }] })
   if (create.status !== 201) throw new Error(`create order ${create.status}`)
   const orderId = create.body.order?.id
   if (!orderId) throw new Error('expected order id')
