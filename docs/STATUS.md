@@ -1,4 +1,5 @@
 # Project Status and Plan
+# Follow ups
 
 This document is the single source of truth for what works today, what is mocked, and what we will build next.
 
@@ -41,3 +42,9 @@ This document is the single source of truth for what works today, what is mocked
 - Epics: `docs/epics/`
 - Sprints: `docs/sprints/`
 - Runbook: `docs/runbook/database.md`
+
+## 2025-10-26
+- API/Web dev servers stable. Tunnel working.
+- iOS: Capacitor sync and Xcode scheme fixed.
+- RC admin-only; staff UI behaves as client for RC.
+- Tomorrow: Postgres parity for delivery assignment; CI polish; add tests.
