@@ -1,0 +1,38 @@
+# Real App Readiness Checklist
+
+- [ ] Product
+  - [ ] Final app name and bundle IDs (iOS, Android)
+  - [ ] Branding (logo, colors, typography)
+  - [ ] App store descriptions, screenshots, privacy URL, support URL
+- [ ] Design & UX
+  - [ ] Icon set (AppIcon, favicon, splash)
+  - [ ] Layout pass for mobile + desktop
+  - [ ] Empty states, loading, and error messages
+  - [ ] Accessibility pass (labels, contrast, keyboard)
+- [ ] Web (Vite)
+  - [ ] Environment: apiBase prod URL; fallback logic
+  - [ ] Service Worker: cache strategy, versioning, update flow
+  - [ ] Analytics/instrumentation events
+  - [ ] Build pipeline + static hosting target
+- [ ] Mobile (Capacitor)
+  - [ ] Sync build from apps/web/dist
+  - [ ] App name, icons, splash, permissions strings
+  - [ ] iOS signing/team, Android keystore
+  - [ ] Device networking: prod API base and staging API base
+- [ ] API
+  - [ ] Postgres migrations, seed data, and runbook
+  - [ ] Observability (logs, metrics, healthz)
+  - [ ] Auth + roles validation and rate limits
+  - [ ] Payments (deferred) toggled off in prod
+- [ ] CI/CD
+  - [ ] Lint, tests, migrations in CI
+  - [ ] Preview deployments (web), testflight/internal tracks (mobile)
+  - [ ] Release tagging and changelog
+- [ ] Security/Privacy
+  - [ ] Secrets management (no keys in repo)
+  - [ ] CORS, HTTPS, cookie/security headers
+  - [ ] Privacy policy, terms, data retention
+- [ ] Ops
+  - [ ] Backups and DB access policy
+  - [ ] Incident runbook and on-call
+  - [ ] Monitoring alerts

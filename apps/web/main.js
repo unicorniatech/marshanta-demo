@@ -511,6 +511,39 @@ function renderRestaurants(rows = []) {
   })
 }
 
+// Orders list empty state helper (if used by refreshOrders renderer)
+try {
+  const maybeWrapOrdersList = () => {
+    const list = els.ordersList
+    if (!list) return
+    if (!list.children || list.children.length === 0) {
+      const li = document.createElement('li')
+      li.className = 'muted'
+      li.textContent = 'Aún no tienes pedidos.'
+      list.appendChild(li)
+    }
+  }
+  // Observe after each refresh via a minimal interval debounce
+  setInterval(() => { try { maybeWrapOrdersList() } catch(_) {} }, 1500)
+} catch (_) {}
+
+// ---------- Modal close consistency (Escape + backdrop) ----------
+try {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      try { if (els.howOverlay && els.howOverlay.style.display === 'flex') { document.getElementById('howCloseBtn')?.click() } } catch(_) {}
+      try { if (els.apiOverlay && els.apiOverlay.style.display === 'flex') { document.getElementById('apiModalClose')?.click() } } catch(_) {}
+      try { if (els.authOverlay && els.authOverlay.style.display !== 'none') { document.getElementById('authClose')?.click() } } catch(_) {}
+    }
+  })
+  // Backdrop click for API modal
+  els.apiOverlay?.addEventListener('click', (ev) => { if (ev.target === els.apiOverlay) document.getElementById('apiModalClose')?.click() })
+  // Backdrop click for How modal
+  els.howOverlay?.addEventListener('click', (ev) => { if (ev.target === els.howOverlay) document.getElementById('howCloseBtn')?.click() })
+  // Backdrop click for Auth modal
+  els.authOverlay?.addEventListener('click', (ev) => { if (ev.target === els.authOverlay) document.getElementById('authClose')?.click() })
+} catch (_) {}
+
 async function selectRestaurant(r) {
   selectedRestaurant = r
   els.menuHeader.textContent = `Menú — ${r.name}`
@@ -597,6 +630,19 @@ function renderCart() {
   })
   els.cartTotal.textContent = formatPrice(total)
   persistCart()
+  // Empty state + disabled buttons
+  try {
+    if (cart.length === 0) {
+      const li = document.createElement('li')
+      li.className = 'muted'
+      li.textContent = 'Tu carrito está vacío.'
+      els.cartList.appendChild(li)
+    }
+    const disable = cart.length === 0
+    if (els.reviewOrderBtn) els.reviewOrderBtn.disabled = disable
+    if (els.placeOrderBtn) els.placeOrderBtn.disabled = disable
+    if (els.clearCartBtn) els.clearCartBtn.disabled = disable
+  } catch (_) {}
 }
 
 // ---------- Orders (Story 3.1) ----------
@@ -1081,6 +1127,13 @@ function renderDeliveryAssignments(rows = []) {
   const list = document.getElementById('delAssignments')
   if (!list) return
   list.innerHTML = ''
+  if (!rows || rows.length === 0) {
+    const li = document.createElement('li')
+    li.className = 'muted'
+    li.textContent = 'No tienes entregas asignadas aún.'
+    list.appendChild(li)
+    return
+  }
   rows.forEach(a => {
     const li = document.createElement('li')
     const title = document.createElement('div')
